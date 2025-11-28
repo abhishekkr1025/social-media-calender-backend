@@ -1,0 +1,28 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  },
+  "dependencies": {
+    "axios": "^1.13.2",
+    "dotenv": "^17.2.3",
+    "express-session": "^1.18.2",
+    "file-type": "^21.1.1",
+    "googleapis": "^166.0.0",
+    "multer": "^2.0.2",
+    "oauth-1.0a": "^2.2.6",
+    "twitter-api-v2": "^1.27.0"
+  }
+}
