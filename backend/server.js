@@ -40,7 +40,7 @@ app.use(bodyParser.json());
 // // ✅ Allow CORS requests from your frontend
 app.use(
   cors({
-    origin: 'http://localhost:5173', // your React app’s URL
+    origin: '*', // your React app’s URL
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true,
   })
@@ -236,7 +236,7 @@ app.post('/api/posts', upload.single("file"), async (req, res) => {
     }
 
     // ⬇️ File URL accessible by worker
-    const fileUrl = `http://localhost:5000/${file.path}`;
+    const fileUrl = `http://20.40.44.179:5000/${file.path}`;
 
     const conn = await db.getConnection();
 

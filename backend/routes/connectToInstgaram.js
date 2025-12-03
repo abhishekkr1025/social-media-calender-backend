@@ -17,7 +17,11 @@ const REDIRECT_URI = process.env.FB_REDIRECT_URI;
 // // ✅ Allow CORS requests from your frontend
 router.use( 
   cors({
-    origin: 'http://localhost:5173', // your React app’s URL
+     origin: [
+    'http://localhost:5173',
+    'http://prod.panditjee.com',
+    'http://prod.panditjee.com:5000'
+  ],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true,
   })

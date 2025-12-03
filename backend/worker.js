@@ -351,10 +351,15 @@ export async function runWorkerLoop() {
   }
 }
 
-// Run if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+console.log("🚀 Worker process started...");
+
+// Give DB 2 seconds to connect before loop begins
+setTimeout(() => {
+  console.log("⏳ Worker loop initialized...");
   runWorkerLoop().catch(err => {
-    console.error('Worker crashed', err);
-    process.exit(1);
+    console.error("❌ Worker crashed:", err);
   });
-}
+}, 2000);
+
+// Run if called directly
+
