@@ -148,8 +148,8 @@ export async function publishYouTube({
       await publishTwitter({
         oauth_token: twitter_credentials.oauth_token,
         oauth_token_secret: twitter_credentials.oauth_token_secret,
-        status: `${description}\n\n🎥 Watch here: ${youtubeVideoUrl}`,
-        media_url: youtubeVideoUrl // Optional — If you want to attach original video thumbnail/media
+        status: `${title}\n\n${description}\n\n🎥 Watch here: ${youtubeVideoUrl}`,
+        media_url: "" // Optional — If you want to attach original video thumbnail/media
       });
     }
 
