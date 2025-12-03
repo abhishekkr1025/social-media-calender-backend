@@ -40,13 +40,16 @@ app.use(bodyParser.json());
 // // ✅ Allow CORS requests from your frontend
 app.use(
   cors({
-    origin: '*',
+    origin: [
+      "http://localhost:5173",
+      "https://prod.panditjee.com"
+    ],
     methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: false,
+    credentials: true,
   })
 );
 
-
+app.options("*", cors());
 
 
 app.use(
