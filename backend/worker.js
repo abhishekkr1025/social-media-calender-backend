@@ -302,8 +302,8 @@ async function processJob(row) {
       // 🔹 Only include Twitter credentials if exists
       twitter_credentials: twitterAccs.length
         ? {
-          oauth_token: twacc.twitter_oauth_token,
-          oauth_token_secret: twacc.twitter_oauth_token_secret
+          oauth_token: twacc.oauth_token,
+          oauth_token_secret: twacc.oauth_token_secret
         }
         : null
     });
