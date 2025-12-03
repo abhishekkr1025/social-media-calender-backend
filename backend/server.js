@@ -40,11 +40,8 @@ app.use(bodyParser.json());
 // // ✅ Allow CORS requests from your frontend
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "https://prod.panditjee.com"
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    origin: "http://localhost:5173",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
   })
 );
@@ -84,15 +81,15 @@ app.post("/api/clients", async (req, res) => {
 
 
 
-app.delete("/api/deleteClient/:id", async(req, res) => {
+app.delete("/api/deleteClient/:id", async (req, res) => {
   try {
     const clientId = req.params.id;
     console.log("🗑️ Deleting client with ID:", clientId);
 
     const [clients] = await db.query("SELECT * FROM clients WHERE id = ?", [clientId]);
 
-    if(clients.length === 0) {
-      return res.status(404).json({error: "Client not found"});
+    if (clients.length === 0) {
+      return res.status(404).json({ error: "Client not found" });
     }
 
     await db.query("DELETE FROM clients WHERE id = ?", [clientId]);
@@ -322,7 +319,7 @@ function safeParsePlatforms(value) {
 
   try {
     return JSON.parse(value);
-  } catch (e) {}
+  } catch (e) { }
 
   if (typeof value === 'string' && value.includes(',')) {
     return value.split(',').map(p => p.trim());
@@ -371,7 +368,7 @@ app.get('/api/posts/all', async (req, res) => {
     // 3️⃣ Transform the posts to parse JSON platforms
     const formattedPosts = posts.map(post => ({
       ...post,
-      platforms: post.platforms ? safeParsePlatforms(post.platforms):[]
+      platforms: post.platforms ? safeParsePlatforms(post.platforms) : []
     }));
 
     return res.json({
@@ -460,10 +457,10 @@ app.post("/api/publish/twitter", async (req, res) => {
 
 app.post("/api/publish/youtube", async (req, res) => {
   try {
-    const { 
-      clientId, 
-      title, 
-      description, 
+    const {
+      clientId,
+      title,
+      description,
       video_url,
       twitter_oauth_token,
       twitter_oauth_token_secret
@@ -656,8 +653,8 @@ app.get("/api/clients/:clientId/youtube/account", async (req, res) => {
   }
 });
 
-app.get("/api/clients/:clientId/wordpress/account",async (req, res) => {
-     const {clientId} = req.params;
+app.get("/api/clients/:clientId/wordpress/account", async (req, res) => {
+  const { clientId } = req.params;
   try {
     const [rows] = await db.query(
       `SELECT site_url, username, app_password, wp_user_id
