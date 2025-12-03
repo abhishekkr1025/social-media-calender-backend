@@ -40,11 +40,15 @@ app.use(bodyParser.json());
 // // ✅ Allow CORS requests from your frontend
 app.use(
   cors({
-    origin: '*', // your React app’s URL
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    origin: [
+      "http://localhost:5173",
+      "https://prod.panditjee.com"
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
 );
+
 
 app.use(
   session({
