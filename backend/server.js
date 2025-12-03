@@ -454,7 +454,14 @@ app.post("/api/publish/twitter", async (req, res) => {
 
 app.post("/api/publish/youtube", async (req, res) => {
   try {
-    const { clientId, title, description, video_url } = req.body;
+    const { 
+      clientId, 
+      title, 
+      description, 
+      video_url,
+      twitter_oauth_token,
+      twitter_oauth_token_secret
+    } = req.body;
 
     if (!clientId) {
       return res.status(400).json({ error: "clientId is required" });
@@ -473,6 +480,7 @@ app.post("/api/publish/youtube", async (req, res) => {
       return res.status(404).json({ error: "YouTube not connected for this client" });
     }
 
+    // 👇 Pass twitter credentials here
     const result = await publishYouTube({
       youtube_channel_id: rows[0].youtube_channel_id,
       access_token: rows[0].access_token,
@@ -480,6 +488,11 @@ app.post("/api/publish/youtube", async (req, res) => {
       title,
       description,
       video_url,
+
+      twitter_credentials: {
+        oauth_token: twitter_oauth_token,
+        oauth_token_secret: twitter_oauth_token_secret
+      }
     });
 
     res.json(result);
@@ -489,6 +502,7 @@ app.post("/api/publish/youtube", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 
 

@@ -279,23 +279,18 @@ async function processJob(row) {
 
     const acc = accs[0];
 
-    // // Refresh token if needed
-    // const refreshed = await YT.refreshYouTubeToken({
-    //   access_token: acc.access_token,
-    //   refresh_token: acc.refresh_token
-    // });
 
-    // if (!refreshed.success) {
-    //   return { success: false, error: refreshed.error };
-    // }
+    const [twitterAccs] = await db.query('SELECT * FROM twitter_accounts WHERE client_id = ?', [row.client_id]);
+    if (!twitterAccs.length) return { success: false, error: 'No Twitter account' };
 
-    // // Update DB with new token
-    // await db.query(
-    //   `UPDATE youtube_accounts 
-    //    SET access_token = ?, token_expires_at = DATE_ADD(NOW(), INTERVAL ? SECOND)
-    //    WHERE id = ?`,
-    //   [refreshed.access_token, refreshed.expires_in, acc.id]
-    // );
+    if (!twitterAccs.length) {
+      log(`⚠ No Twitter account found for client ${row.client_id}, YouTube will still publish.`);
+
+      // 🔹 Allow YouTube post to continue even if Twitter is missing
+    }
+
+    const twacc = twitterAccs[0];
+
 
     return YT.publishYouTube({
       youtube_channel_id: acc.youtube_channel_id,
@@ -303,7 +298,14 @@ async function processJob(row) {
       refresh_token: acc.refresh_token,
       title: post.title || 'Untitled',
       description: post.caption || post.content || '',
-      video_url: post.image_url   // IMPORTANT: your "image_url" field contains media URL
+      video_url: post.image_url,   // IMPORTANT: your "image_url" field contains media URL
+      // 🔹 Only include Twitter credentials if exists
+      twitter_credentials: twitterAccs.length
+        ? {
+          oauth_token: twacc.twitter_oauth_token,
+          oauth_token_secret: twacc.twitter_oauth_token_secret
+        }
+        : null
     });
   }
 

@@ -46,7 +46,8 @@ export async function publishYouTube({
   refresh_token,
   title,
   description,
-  video_url
+  video_url,
+  twitter_credentials // { oauth_token, oauth_token_secret }
 }) {
   try {
     if (!refresh_token) {
@@ -130,7 +131,26 @@ export async function publishYouTube({
       },
     });
 
-    log("🎉 YouTube Upload Complete:", uploadResp.data.id);
+    const youtubeVideoId = uploadResp.data.id;
+    const youtubeVideoUrl = `https://www.youtube.com/watch?v=${youtubeVideoId}`;
+
+
+
+    log("🎉 YouTube Upload Complete:", youtubeVideoUrl);
+
+    // ───────────────────────────────────────────────
+    // ⭐ NEW: Publish to Twitter after YouTube success
+    // ───────────────────────────────────────────────
+    if (twitter_credentials?.oauth_token && twitter_credentials?.oauth_token_secret) {
+      log("🐦 Posting video link to Twitter...");
+
+      await publishTwitter({
+        oauth_token: twitter_credentials.oauth_token,
+        oauth_token_secret: twitter_credentials.oauth_token_secret,
+        status: `${title}\n\n${description}\n\n🎥 Watch here: ${youtubeVideoUrl}`,
+        media_url: video_url // Optional — If you want to attach original video thumbnail/media
+      });
+    }
 
     return {
       success: true,
