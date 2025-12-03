@@ -2,6 +2,7 @@
 import axios from "axios";
 import { log } from "../utils.js";
 import { google } from "googleapis";
+import { publishTwitter } from "./twitter.js";
 
 /**
  * Publishes a video to YouTube using stored refresh token.
