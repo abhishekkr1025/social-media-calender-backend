@@ -42,14 +42,16 @@ app.use((req, res, next) => {
   next();
 });
 
-const upload = multer({
-  dest: "uploads/"   // folder where files will be stored
-});
 
 
 // If you want to avoid body-parser, you can replace this with: app.use(express.json());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+
+const upload = multer({
+  dest: "uploads/"   // folder where files will be stored
+});
 
 // // ✅ Allow CORS requests from your frontend
 // app.use(
@@ -60,12 +62,12 @@ app.use(bodyParser.urlencoded({ extended: true }));
 //   })
 // );
 
-app.use(cors({
-    origin: ["http://localhost:5173", "https://prod.panditjee.com"],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
+// app.use(cors({
+//     origin: ["http://localhost:5173", "https://prod.panditjee.com"],
+//     credentials: true,
+//     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+//     allowedHeaders: ['Content-Type', 'Authorization']
+// }));
 
 // app.options("*", cors());
 
