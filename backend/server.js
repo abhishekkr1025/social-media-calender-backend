@@ -36,17 +36,24 @@ const upload = multer({
 
 // If you want to avoid body-parser, you can replace this with: app.use(express.json());
 app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
 // // ✅ Allow CORS requests from your frontend
-app.use(
-  cors({
-    origin: "http://localhost:5173",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    credentials: true,
-  })
-);
+// app.use(
+//   cors({
+//     origin: "http://localhost:5173",
+//     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+//     credentials: true,
+//   })
+// );
 
-// app.options("*", cors());
+app.use(cors({
+    origin: ["http://localhost:5173", "https://prod.panditjee.com"],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+app.options("*", cors());
 
 
 app.use(
