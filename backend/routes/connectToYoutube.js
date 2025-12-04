@@ -31,11 +31,13 @@ router.get("/youtube/login/:clientId", (req, res) => {
     const { clientId } = req.params;
 
     const scope = [
+        "https://www.googleapis.com/auth/youtube",
         "https://www.googleapis.com/auth/youtube.upload",
         "https://www.googleapis.com/auth/youtube.readonly",
         "https://www.googleapis.com/auth/userinfo.email",
         "https://www.googleapis.com/auth/userinfo.profile"
     ].join(" ");
+
 
     const authUrl =
         `https://accounts.google.com/o/oauth2/v2/auth?` +
@@ -45,7 +47,9 @@ router.get("/youtube/login/:clientId", (req, res) => {
         `&response_type=code` +
         `&scope=${encodeURIComponent(scope)}` +
         `&access_type=offline` +
-        `&prompt=consent`;
+        `&include_granted_scopes=true` +
+        `&prompt=select_account consent`;
+
     // force asking permissions
 
     res.redirect(authUrl);
@@ -57,7 +61,7 @@ router.get("/youtube/login/:clientId", (req, res) => {
  * ------------------------------------------------------
  */
 router.get("/youtube/callback", async (req, res) => {
-   const { code, state: clientId } = req.query;
+    const { code, state: clientId } = req.query;
 
     try {
         // Exchange code → access token + refresh token
@@ -78,6 +82,9 @@ router.get("/youtube/callback", async (req, res) => {
             return res.send("❌ No refresh token received. You must add &prompt=consent to always get it.");
         }
 
+
+        console.log("🔍 Fetching YouTube channel with token:", access_token);
+
         // Get channel info
         const profileResp = await axios.get(
             "https://www.googleapis.com/youtube/v3/channels",
@@ -91,6 +98,9 @@ router.get("/youtube/callback", async (req, res) => {
                 }
             }
         );
+
+        console.log("YT API Response:", profileResp.data);
+
 
         const channel = profileResp.data.items?.[0];
         if (!channel) {
