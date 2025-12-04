@@ -47,7 +47,7 @@ router.get("/youtube/login/:clientId", (req, res) => {
         `&response_type=code` +
         `&scope=${encodeURIComponent(scope)}` +
         `&access_type=offline` +
-        `&include_granted_scopes=true` +
+        `&include_granted_scopes=false` +
         `&prompt=select_account consent`;
 
     // force asking permissions
