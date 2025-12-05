@@ -181,7 +181,7 @@ export async function publishYouTube({
     if (!refresh_token) throw new Error("Missing YouTube refresh_token");
 
     //-------------------------------------------------------
-    // 1️⃣ Refresh YouTube Access Token
+    // 1️⃣ Refresh Access Token
     //-------------------------------------------------------
     const refreshResp = await axios.post(
       "https://oauth2.googleapis.com/token",
@@ -197,18 +197,15 @@ export async function publishYouTube({
     log("🔄 YouTube token refreshed");
 
     //-------------------------------------------------------
-    // 2️⃣ Download the Uploaded Video File
+    // 2️⃣ Download Uploaded File
     //-------------------------------------------------------
     log("📥 Downloading video...");
 
-    const videoResponse = await axios.get(video_url, {
-      responseType: "arraybuffer"
-    });
-
+    const videoResponse = await axios.get(video_url, { responseType: "arraybuffer" });
     const videoBuffer = Buffer.from(videoResponse.data);
 
     //-------------------------------------------------------
-    // 3️⃣ Initiate YouTube Resumable Upload
+    // 3️⃣ Initiate Resumable Upload
     //-------------------------------------------------------
     log("⏳ Initializing YouTube upload...");
 
@@ -238,9 +235,9 @@ export async function publishYouTube({
     if (!uploadUrl) throw new Error("Failed to obtain YouTube upload URL");
 
     //-------------------------------------------------------
-    // 4️⃣ Upload Binary Video to Google Upload URL
+    // 4️⃣ Upload Binary File
     //-------------------------------------------------------
-    log("⬆ Uploading video chunks...");
+    log("⬆ Uploading video...");
 
     const uploadResp = await axios.put(uploadUrl, videoBuffer, {
       headers: {
@@ -255,66 +252,83 @@ export async function publishYouTube({
     log("🎉 YouTube Upload Success:", youtubeVideoUrl);
 
     //-------------------------------------------------------
-    // 5️⃣ WAIT for processing to finish (so link is usable)
+    // 5️⃣ Wait for Processing (poll status)
     //-------------------------------------------------------
-    log("⏳ Waiting for YouTube video processing...");
+    log("⏳ Waiting for YouTube processing...");
 
     let processed = false;
-    for (let i = 0; i < 12; i++) { // ~60 seconds total
+    for (let i = 0; i < 20; i++) { // ~100 sec max
       const check = await axios.get(
-        `https://www.googleapis.com/youtube/v3/videos?part=status&id=${youtubeVideoId}&key=${process.env.GOOGLE_API_KEY}`
+        `https://www.googleapis.com/youtube/v3/videos`,
+        {
+          params: { id: youtubeVideoId, part: "status" },
+          headers: { Authorization: `Bearer ${newAccessToken}` }
+        }
       );
 
-      if (check.data.items[0]?.status?.uploadStatus === "processed") {
+      const state = check.data.items[0]?.status?.uploadStatus;
+      log(`📌 Processing status: ${state}`);
+
+      if (state === "processed" || state === "uploaded") {
         processed = true;
         break;
       }
 
-      await new Promise((r) => setTimeout(r, 5000));
+      await new Promise(res => setTimeout(res, 5000));
     }
 
-    if (!processed) log("⚠️ Still processing but continuing...");
+    if (!processed) log("⚠️ Still processing — continuing...");
 
     //-------------------------------------------------------
-    // 6️⃣ Retrieve Thumbnail URL
+    // 6️⃣ Fetch Thumbnail
     //-------------------------------------------------------
     let thumbnailUrl = null;
-
-    log("📸 Checking thumbnail availability...");
+    log("📸 Checking thumbnail...");
 
     for (let i = 0; i < 10; i++) {
-      const videoData = await axios.get(
-        `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${youtubeVideoId}&key=${process.env.GOOGLE_API_KEY}`
+      const videoInfo = await axios.get(
+        `https://www.googleapis.com/youtube/v3/videos`,
+        {
+          params: { id: youtubeVideoId, part: "snippet" },
+          headers: { Authorization: `Bearer ${newAccessToken}` }
+        }
       );
 
-      const thumbs = videoData?.data?.items?.[0]?.snippet?.thumbnails;
+      const thumbs = videoInfo?.data?.items?.[0]?.snippet?.thumbnails;
 
-      if (thumbs?.maxres?.url || thumbs?.high?.url || thumbs?.medium?.url) {
-        thumbnailUrl = thumbs.maxres?.url || thumbs.high?.url || thumbs.medium?.url;
-        break;
-      }
+      thumbnailUrl =
+        thumbs?.maxres?.url ||
+        thumbs?.high?.url ||
+        thumbs?.medium?.url ||
+        null;
 
-      await new Promise((r) => setTimeout(r, 2000));
+      if (thumbnailUrl) break;
+
+      await new Promise(res => setTimeout(res, 2000));
     }
 
     if (!thumbnailUrl) {
-      log("⚠️ No thumbnail yet — using YouTube link as preview fallback");
+      log("⚠️ Thumbnail not ready — fallback to video URL");
+      thumbnailUrl = youtubeVideoUrl;
     }
 
     //-------------------------------------------------------
-    // 7️⃣ Post to Twitter with Thumbnail + YouTube Link
+    // 7️⃣ Post to Twitter (Optional)
     //-------------------------------------------------------
     if (twitter_credentials?.oauth_token && twitter_credentials?.oauth_token_secret) {
-      log("🐦 Posting to Twitter...");
-      
+      log("🐦 Posting video link to Twitter...");
+
       await publishTwitter({
         oauth_token: twitter_credentials.oauth_token,
         oauth_token_secret: twitter_credentials.oauth_token_secret,
         status: `${title}\n\n${description}\n\n🎥 Watch here: ${youtubeVideoUrl}`,
-        media_url: thumbnailUrl || youtubeVideoUrl
+        media_url: thumbnailUrl
       });
     }
 
+    //-------------------------------------------------------
+    // 🎉 DONE
+    //-------------------------------------------------------
     return {
       success: true,
       youtube_video_id: youtubeVideoId,
@@ -331,4 +345,5 @@ export async function publishYouTube({
     };
   }
 }
+
 
