@@ -44,7 +44,7 @@ const app = express();
 
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://social-media-calendar-frontend-ocxw.vercel.app/"
+  "https://social-media-calendar-frontend-ocxw.vercel.app"
 ];
 
 app.use((req, res, next) => {
