@@ -255,7 +255,7 @@ app.delete("/api/deletePosts/:id", async (req, res) => {
 //   }
 // });
 
-app.post('/api/posts', upload.single("file"), async (req, res) => {
+app.post('/api/posts', upload.array("files",5), async (req, res) => {
   try {
     const {
       clientId,
