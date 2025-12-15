@@ -7,7 +7,7 @@ export async function publishTwitter({
   oauth_token,
   oauth_token_secret,
   status,
-  media_url
+  media_urls = []   // ✅ ARRAY
 }) {
   try {
     if (!oauth_token || !oauth_token_secret) {
@@ -21,82 +21,86 @@ export async function publishTwitter({
       accessSecret: oauth_token_secret,
     });
 
-    let mediaId = null;
+    const rwClient = client.readWrite;
 
-    // ───────────────────────────────
-    // 1️⃣ DOWNLOAD MEDIA
-    // ───────────────────────────────
-    if (media_url) {
-      log("📥 Downloading media:", media_url);
+    const mediaIds = [];
+    let hasVideo = false;
 
-      const mediaResponse = await axios.get(media_url, { responseType: "arraybuffer" });
+    // Twitter limits
+    const urls = media_urls.slice(0, 4);
+
+    for (const url of urls) {
+      log("📥 Downloading media:", url);
+
+      const mediaResponse = await axios.get(url, { responseType: "arraybuffer" });
       const buffer = Buffer.from(mediaResponse.data);
 
-      // Try to detect mime from file itself
       const detected = await fileTypeFromBuffer(buffer);
-
       let mimeType = detected?.mime || mediaResponse.headers["content-type"];
 
-      if (!mimeType) {
-        mimeType = "application/octet-stream";
-      }
+      if (!mimeType) mimeType = "application/octet-stream";
 
-      log("📄 Final MIME Type:", mimeType);
+      log("📄 Detected MIME:", mimeType);
 
       const isVideo = mimeType.startsWith("video/");
       const isImage = mimeType.startsWith("image/");
 
-      // ───────────────────────────────
-      // 2️⃣ UPLOAD VIDEO
-      // ───────────────────────────────
+      // ❌ Twitter rules: video OR images, not both
+      if (isVideo && mediaIds.length > 0) {
+        throw new Error("Twitter does not allow mixing images and video");
+      }
+      if (hasVideo && isImage) {
+        throw new Error("Twitter does not allow mixing images and video");
+      }
+
+      // 🎞 VIDEO (only 1 allowed)
       if (isVideo) {
-        log("🎞 Uploading MP4 via CHUNKED upload...");
+        log("🎞 Uploading video via chunked upload");
 
-        mediaId = await client.v1.uploadMedia(buffer, {
-          type: "video/mp4",
-          chunkLength: 5 * 1024 * 1024, // 5MB
+        const mediaId = await rwClient.v1.uploadMedia(buffer, {
+          mimeType,            // ✅ FIXED (no `type`)
+          longVideo: true,     // ✅ REQUIRED for mp4
+          chunkLength: 5 * 1024 * 1024
         });
 
-        log("🎥 Video uploaded, ID:", mediaId);
+        mediaIds.push(mediaId);
+        hasVideo = true;
+        break; // only one video allowed
       }
 
-      // ───────────────────────────────
-      // 3️⃣ UPLOAD IMAGE
-      // ───────────────────────────────
-      else if (isImage) {
-        log("🖼 Uploading image...");
+      // 🖼 IMAGE
+      if (isImage) {
+        log("🖼 Uploading image");
 
-        mediaId = await client.v1.uploadMedia(buffer, {
-          mimeType,
+        const mediaId = await rwClient.v1.uploadMedia(buffer, {
+          mimeType
         });
 
-        log("🖼 Image uploaded, ID:", mediaId);
-      }
-
-      // ❌ Unknown media
-      else {
+        mediaIds.push(mediaId);
+      } else {
         throw new Error(`Unsupported media type: ${mimeType}`);
       }
     }
 
-    // ───────────────────────────────
-    // 4️⃣ PUBLISH TWEET
-    // ───────────────────────────────
-    const payload = { text: status };
+    // 🐦 Publish Tweet
+    const payload = {
+      text: status
+    };
 
-    if (mediaId) {
-      payload.media = { media_ids: [mediaId] };
+    if (mediaIds.length > 0) {
+      payload.media = { media_ids: mediaIds };
     }
 
     log("📤 Posting tweet:", payload);
 
-    const tweet = await client.v2.tweet(payload);
+    const tweet = await rwClient.v2.tweet(payload);
 
     log("✅ Tweet posted:", tweet.data.id);
 
     return {
       success: true,
-      tweetId: tweet.data.id,
+      external_post_id: tweet.data.id,
+      raw: tweet
     };
 
   } catch (error) {
