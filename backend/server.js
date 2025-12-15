@@ -371,13 +371,15 @@ app.post('/api/posts', upload.array("files", 5), async (req, res) => {
       return res.status(400).json({ error: 'Missing fields' });
     }
 
+    // ✅ MULTIPLE FILES
     const files = req.files;
+
     if (!files || files.length === 0) {
       return res.status(400).json({ error: "At least one file is required" });
     }
 
     const fileUrls = files.map(
-      f => `http://20.40.44.179:5000/${f.path}`
+      file => `http://20.40.44.179:5000/${file.path}`
     );
 
     const conn = await db.getConnection();
@@ -385,9 +387,9 @@ app.post('/api/posts', upload.array("files", 5), async (req, res) => {
     try {
       await conn.beginTransaction();
 
-      // 1️⃣ Insert post (NO image_url anymore)
+      // 1️⃣ Insert post
       const [postResult] = await conn.query(
-        `INSERT INTO posts
+        `INSERT INTO posts 
          (client_id, title, caption, scheduled_at, platforms, created_at)
          VALUES (?, ?, ?, ?, ?, NOW())`,
         [
@@ -401,14 +403,28 @@ app.post('/api/posts', upload.array("files", 5), async (req, res) => {
 
       const postId = postResult.insertId;
 
-      // 2️⃣ Insert media rows
-      for (const url of fileUrls) {
-        await conn.query(
+      // 2️⃣ Insert media (ONE ROW PER FILE)
+      const mediaPromises = fileUrls.map(url =>
+        conn.query(
           `INSERT INTO post_media (post_id, media_url, created_at)
            VALUES (?, ?, NOW())`,
           [postId, url]
-        );
-      }
+        )
+      );
+
+      await Promise.all(mediaPromises);
+
+      // 3️⃣ Queue posts per platform
+      const queuePromises = parsedPlatforms.map(platform =>
+        conn.query(
+          `INSERT INTO queued_posts 
+           (post_id, client_id, platform, scheduled_at, status, created_at)
+           VALUES (?, ?, ?, ?, 'queued', NOW())`,
+          [postId, clientId, platform, scheduled_at]
+        )
+      );
+
+      await Promise.all(queuePromises);
 
       await conn.commit();
 
@@ -420,17 +436,18 @@ app.post('/api/posts', upload.array("files", 5), async (req, res) => {
 
     } catch (err) {
       await conn.rollback();
-      console.error("post create error", err);
-      res.status(500).json({ error: "Failed to create post" });
+      console.error("enqueue error", err);
+      res.status(500).json({ error: 'Failed to enqueue post', details: err.message });
     } finally {
       conn.release();
     }
 
   } catch (err) {
     console.error("server error", err);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: 'Server error', details: err.message });
   }
 });
+
 
 
 
