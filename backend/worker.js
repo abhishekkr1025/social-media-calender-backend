@@ -39,7 +39,7 @@ export async function claimAndProcessBatch() {
     const [rows] = await conn.query(
       `SELECT * FROM queued_posts
        WHERE status = 'queued'
-         AND scheduled_at <= DATE_ADD(NOW(), INTERVAL ? SECOND)
+         AND scheduled_at <= NOW()
          AND (next_retry_at IS NULL OR next_retry_at <= NOW())
        ORDER BY priority ASC, scheduled_at ASC
        LIMIT ? FOR UPDATE`,
