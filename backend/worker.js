@@ -1,3 +1,4 @@
+// Okay I will choose option A but addition of posts in the queued posts is done is workekr.js
 // worker.js
 import dotenv from "dotenv";
 dotenv.config();
@@ -205,24 +206,12 @@ export async function claimAndProcessBatch() {
   }
 }
 
-
-async function getPostMedia(postId) {
-  const [rows] = await db.query(
-    'SELECT media_url FROM post_media WHERE post_id = ? ORDER BY id ASC',
-    [postId]
-  );
-  return rows.map(r => r.media_url);
-}
-
-
 // Process single job - uses platform services
 async function processJob(row) {
   // load post
   const [[postRows]] = await db.query('SELECT * FROM posts WHERE id = ?', [row.post_id]);
   if (!postRows) return { success: false, error: 'Post not found' };
   const post = postRows;
-  const mediaUrls = await getPostMedia(row.post_id);
-
 
   // choose platform
   if (row.platform === 'instagram') {
@@ -233,7 +222,7 @@ async function processJob(row) {
     return IG.publishInstagram({
       instagramAccountId: acc.instagram_account_id,
       accessToken: acc.access_token,
-      image_url: mediaUrls,
+      image_url: post.image_url,
       caption: post.caption || post.title || post.content || ''
     });
   }
@@ -251,7 +240,7 @@ async function processJob(row) {
       personUrn,
       accessToken: acc.access_token,
       text: post.caption || post.title || post.content || '',
-      image_url: mediaUrls
+      image_url: post.image_url
     });
   }
 
@@ -264,7 +253,7 @@ async function processJob(row) {
       oauth_token: acc.oauth_token,
       oauth_token_secret: acc.oauth_token_secret,
       status: post.caption || post.title || post.content || '',
-      media_url: mediaUrls.slice(0, 4) //
+      media_url: post.image_url
     });
   }
 
@@ -277,7 +266,7 @@ async function processJob(row) {
       pageId: acc.page_id,
       pageAccessToken: acc.access_token,
       message: post.caption || post.title || post.content || '',
-      image_url: mediaUrls
+      image_url: post.image_url
     });
   }
 
@@ -290,8 +279,6 @@ async function processJob(row) {
     if (!accs.length) return { success: false, error: 'No YouTube account connected' };
 
     const acc = accs[0];
-
-    const videoUrl = mediaUrls.find(url => url.endsWith(".mp4"));
 
 
     const [twitterAccs] = await db.query('SELECT * FROM twitter_accounts WHERE client_id = ?', [row.client_id]);
@@ -312,7 +299,7 @@ async function processJob(row) {
       refresh_token: acc.refresh_token,
       title: post.title || 'Untitled',
       description: post.caption || post.content || '',
-      video_url: videoUrl,   // IMPORTANT: your "image_url" field contains media URL
+      video_url: post.image_url,   // IMPORTANT: your "image_url" field contains media URL
       // 🔹 Only include Twitter credentials if exists
       twitter_credentials: twitterAccs.length
         ? {
@@ -333,13 +320,12 @@ async function processJob(row) {
     if (!accs.length) return { success: false, error: "No WordPress account" };
     const acc = accs[0];
 
-    return WP.publishWordPress({
+    return WP.publishToWordPress({
       site_url: acc.site_url,
       username: acc.username,
       app_password: acc.app_password,
       title: post.title || "New Post",
       content: post.caption || post.content || "",
-      media_urls: mediaUrls
     });
   }
 
@@ -378,5 +364,4 @@ setTimeout(() => {
   });
 }, 2000);
 
-// Run if called directly
 
