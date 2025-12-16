@@ -209,6 +209,9 @@ export async function claimAndProcessBatch() {
 // Process single job - uses platform services
 async function processJob(row) {
   // load post
+  console.log("🕒 Node timezone:", Intl.DateTimeFormat().resolvedOptions().timeZone);
+  console.log("🕒 Node now:", new Date().toString());
+
   const [[postRows]] = await db.query('SELECT * FROM posts WHERE id = ?', [row.post_id]);
   if (!postRows) return { success: false, error: 'Post not found' };
   const post = postRows;
