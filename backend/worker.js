@@ -323,13 +323,20 @@ async function processJob(row) {
     if (!accs.length) return { success: false, error: "No WordPress account" };
     const acc = accs[0];
 
-    return WP.publishToWordPress({
+    await publishWordPress({
       site_url: acc.site_url,
       username: acc.username,
       app_password: acc.app_password,
-      title: post.title || "New Post",
-      content: post.caption || post.content || "",
+
+      title: post.title,
+      content: post.content,       // HTML allowed
+      excerpt: post.caption,
+      featuredImageFile: req.file,
+
+      status: "future",
+      scheduled_at: row.scheduled_at
     });
+
   }
 
 
