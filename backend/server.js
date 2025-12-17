@@ -342,53 +342,52 @@ app.post('/api/posts', upload.single("file"), async (req, res) => {
   }
 });
 
-app.post(
-  "/api/wp-posts",
-  upload.single("featuredImage"),
+router.post(
+  "/wp-posts",
+  upload.single("featured_image"),
   async (req, res) => {
     try {
       const {
-        clientId,
+        client_id,
         title,
         content,
         excerpt,
-        scheduled_at
+        scheduled_at,
+        status
       } = req.body;
 
-      if (!clientId || !title || !content || !excerpt || !scheduled_at) {
-        return res.status(400).json({ error: "Missing fields" });
+      if (!client_id || !title || !content || !scheduled_at) {
+        return res.status(400).json({ error: "Missing required fields" });
       }
 
-      const featuredImageUrl = req.file
-        ? `https://prod.panditjee.com/${req.file.path}`
+      const featured_image_url = req.file
+        ? `/uploads/${req.file.filename}`
         : null;
 
-      const conn = await db.getConnection();
-      try {
-        await conn.query(
-          `INSERT INTO wp_posts
-           (client_id, title, content, featured_image_url, scheduled_at, status)
-           VALUES (?, ?, ?, ?, ?, 'scheduled')`,
-          [
-            clientId,
-            title,
-            content,
-            featuredImageUrl,
-            scheduled_at
-          ]
-        );
+      await db.query(
+        `
+        INSERT INTO wp_posts
+        (client_id, title, content, excerpt, featured_image_url, scheduled_at, status)
+        VALUES (?, ?, ?, ?, ?, ?, 'scheduled')
+        `,
+        [
+          client_id,
+          title,
+          content,
+          excerpt,
+          featured_image_url,
+          scheduled_at
+        ]
+      );
 
-        res.json({ success: true });
-      } finally {
-        conn.release();
-      }
-
+      res.json({ success: true });
     } catch (err) {
-      console.error("WP schedule error", err);
-      res.status(500).json({ error: err.message });
+      console.error("WP POST ERROR:", err);
+      res.status(500).json({ error: "Server error" });
     }
   }
 );
+
 
 app.get('/api/wp-posts', async (req, res) => {
   try {
