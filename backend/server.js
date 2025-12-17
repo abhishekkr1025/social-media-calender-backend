@@ -342,7 +342,7 @@ app.post('/api/posts', upload.single("file"), async (req, res) => {
   }
 });
 
-router.post(
+app.post(
   "/wp-posts",
   upload.single("featured_image"),
   async (req, res) => {
