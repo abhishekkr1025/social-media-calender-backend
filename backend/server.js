@@ -342,6 +342,66 @@ app.post('/api/posts', upload.single("file"), async (req, res) => {
   }
 });
 
+app.post(
+  "/api/wp-posts",
+  upload.single("featuredImage"),
+  async (req, res) => {
+    try {
+      const {
+        clientId,
+        title,
+        content,
+        excerpt,
+        scheduled_at
+      } = req.body;
+
+      if (!clientId || !title || !content || !excerpt || !scheduled_at) {
+        return res.status(400).json({ error: "Missing fields" });
+      }
+
+      const featuredImageUrl = req.file
+        ? `https://prod.panditjee.com/${req.file.path}`
+        : null;
+
+      const conn = await db.getConnection();
+      try {
+        await conn.query(
+          `INSERT INTO wp_posts
+           (client_id, title, content, featured_image_url, scheduled_at, status)
+           VALUES (?, ?, ?, ?, ?, 'scheduled')`,
+          [
+            clientId,
+            title,
+            content,
+            featuredImageUrl,
+            scheduled_at
+          ]
+        );
+
+        res.json({ success: true });
+      } finally {
+        conn.release();
+      }
+
+    } catch (err) {
+      console.error("WP schedule error", err);
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+app.get('/api/wp-posts', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT * FROM wp_posts ORDER BY scheduled_at ASC LIMIT 500'
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch wp_posts' });
+  }
+});
+
+
 
 // app.post('/api/posts', upload.array("files", 5), async (req, res) => {
 //   try {
