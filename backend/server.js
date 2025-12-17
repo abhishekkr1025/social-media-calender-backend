@@ -343,7 +343,7 @@ app.post('/api/posts', upload.single("file"), async (req, res) => {
 });
 
 app.post(
-  "/wp-posts",
+  "/api/wp-posts",
   upload.single("featured_image"),
   async (req, res) => {
     try {
