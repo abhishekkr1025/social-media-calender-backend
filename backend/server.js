@@ -348,7 +348,7 @@ app.post(
   async (req, res) => {
     try {
       const {
-        client_id,
+        clientId,
         title,
         content,
         excerpt,
@@ -356,7 +356,11 @@ app.post(
         status
       } = req.body;
 
-      if (!client_id || !title || !content || !scheduled_at) {
+      let reqBody = {
+
+      }
+
+      if (!clientId || !title || !content || !scheduled_at) {
         return res.status(400).json({ error: "Missing required fields" });
       }
 
@@ -371,7 +375,7 @@ app.post(
         VALUES (?, ?, ?, ?, ?, ?, 'scheduled')
         `,
         [
-          client_id,
+          clientId,
           title,
           content,
           excerpt,
