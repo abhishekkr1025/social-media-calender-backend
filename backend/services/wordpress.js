@@ -9,7 +9,7 @@ async function uploadFeaturedImage({ site_url, username, app_password, file }) {
   formData.append("file", file.buffer, file.originalname);
 
   const res = await axios.post(
-    `${site_url.replace(/\/$/, "")}/wp-json/wp/v2/media`,
+    `${site_url}/wp-json/wp/v2/media`,
     formData,
     {
       headers: {
@@ -92,7 +92,7 @@ export async function publishWordPress({
 
 
     const response = await axios.post(
-      `${site_url.replace(/\/$/, "")}/wp-json/wp/v2/posts`,
+      `${site_url}/wp-json/wp/v2/posts`,
       payload,
       {
         auth: {
