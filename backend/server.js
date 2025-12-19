@@ -368,7 +368,11 @@ app.post(
         ? `http://20.40.44.179:5000/${req.file.path}`
         : null;
 
-        console.log(featured_image_url)
+      console.log(featured_image_url)
+      console.log("req.file:", req.file);
+      console.log("req.body:", req.body);
+
+
 
       await db.query(
         `
