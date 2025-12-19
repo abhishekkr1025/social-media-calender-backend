@@ -105,7 +105,7 @@ async function processWpPost(post) {
          wp_post_id=?,
          updated_at=NOW()
      WHERE id=?`,
-        [result.external_post_id, row.id]
+        [result.external_post_id, post.id]
       );
     }
 
