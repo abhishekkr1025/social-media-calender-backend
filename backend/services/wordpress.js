@@ -1,9 +1,9 @@
 import axios from "axios";
 import FormData from "form-data";
 
-/**
- * Upload featured image to WordPress Media Library
- */
+// /**
+//  * Upload featured image to WordPress Media Library
+//  */
 async function uploadFeaturedImage({ site_url, username, app_password, file }) {
   const formData = new FormData();
   formData.append("file", file.buffer, file.originalname);
@@ -40,9 +40,9 @@ function normalizeWpDate(scheduled_at) {
 }
 
 
-/**
- * Publish / Schedule WordPress blog post
- */
+// /**
+//  * Publish / Schedule WordPress blog post
+//  */
 // export async function publishWordPress({
 //   site_url,
 //   username,
@@ -94,7 +94,7 @@ function normalizeWpDate(scheduled_at) {
 //     }
   
 //     const postUrl = `${site_url}/wp-json/wp/v2/posts`
-//     console.log("Post Url: ",postUrl)
+//     log("Post Url: ",postUrl)
 
 //     const response = await axios.post(
 //       postUrl,
@@ -125,6 +125,7 @@ function normalizeWpDate(scheduled_at) {
 //   }
 // }
 
+
 export async function publishWordPress({
   site_url,
   username,
@@ -148,7 +149,7 @@ export async function publishWordPress({
   }
 
   if (status === "future" && scheduled_at) {
-    const iso = scheduled_at.replace(" ", "T");
+    const iso = normalizeWpDate(scheduled_at);
     payload.date = iso;
     payload.date_gmt = new Date(iso).toISOString();
   }
@@ -171,4 +172,7 @@ export async function publishWordPress({
     raw: response.data
   };
 }
+
+
+
 
