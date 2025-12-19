@@ -365,8 +365,9 @@ app.post(
       }
 
       const featured_image_url = req.file
-        ? `/uploads/${req.file.filename}`
+        ? `http://20.40.44.179:5000/${req.file.path}`
         : null;
+
 
       await db.query(
         `
@@ -534,7 +535,7 @@ app.get('/api/queued', async (req, res) => {
 
 // Admin: list queued jobs
 app.get('/api/queued/:clientId', async (req, res) => {
-  const {clientId} = req.params;
+  const { clientId } = req.params;
   try {
     const [rows] = await db.query(
       `SELECT * FROM queued_posts where client_id = ? ORDER BY scheduled_at ASC LIMIT 500`,
@@ -934,7 +935,7 @@ app.get("/api/published-posts", async (req, res) => {
 });
 
 app.get("/api/published-posts/:clientId", async (req, res) => {
-  const {clientId} = req.params;
+  const { clientId } = req.params;
   const [rows] = await db.query(`
     SELECT pp.*, p.title, p.caption, p.image_url
     FROM published_posts pp

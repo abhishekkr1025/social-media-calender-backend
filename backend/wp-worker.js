@@ -3,7 +3,8 @@ dotenv.config();
 
 import db from "./db.js";
 import { sleep, log } from "./utils.js";
-import { publishWordPress } from "./services/wordpress.js";
+import { publishWordPress, uploadFeaturedImage, uploadFeaturedImageFromUrl } from "./services/wordpress.js";
+
 
 const POLL_MS = 5000;
 const BATCH_SIZE = 3;
@@ -84,12 +85,17 @@ async function processWpPost(post) {
 
     let featuredMediaId = null;
 
-    if (post.featured_image_url || post.file) {
-      featuredMediaId = await uploadFeaturedImage({
+    if (post.featured_image_url) {
+      console.log("📸 Uploading featured image:", post.featured_image_url);
+    }
+
+
+    if (post.featured_image_url) {
+      featuredMediaId = await uploadFeaturedImageFromUrl({
         site_url: wp.site_url,
         username: wp.username,
         app_password: wp.app_password,
-        file: post.file // multer file
+        image_url: post.featured_image_url
       });
     }
 

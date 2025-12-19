@@ -29,6 +29,37 @@ async function uploadFeaturedImage({ site_url, username, app_password, file }) {
   return res.data.id; // media_id
 }
 
+async function uploadFeaturedImageFromUrl({
+  site_url,
+  username,
+  app_password,
+  image_url
+}) {
+  const imageRes = await axios.get(image_url, {
+    responseType: "arraybuffer"
+  });
+
+  const formData = new FormData();
+  formData.append("file", imageRes.data, image_url.split("/").pop());
+
+  const res = await axios.post(
+    `${site_url.replace(/\/$/, "")}/wp-json/wp/v2/media`,
+    formData,
+    {
+      headers: {
+        ...formData.getHeaders()
+      },
+      auth: {
+        username,
+        password: app_password
+      }
+    }
+  );
+
+  return res.data.id;
+}
+
+
 function normalizeWpDate(scheduled_at) {
   if (scheduled_at instanceof Date) {
     return scheduled_at.toISOString().slice(0, 19);
@@ -126,7 +157,7 @@ function normalizeWpDate(scheduled_at) {
 // }
 
 
-export async function publishWordPress({
+async function publishWordPress({
   site_url,
   username,
   app_password,
@@ -171,6 +202,12 @@ export async function publishWordPress({
     url: response.data.link,
     raw: response.data
   };
+}
+
+export {
+  publishWordPress,
+  uploadFeaturedImage,
+  uploadFeaturedImageFromUrl
 }
 
 
