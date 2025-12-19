@@ -1,17 +1,20 @@
 import axios from "axios";
+import FormData from "form-data";
 
-
+/**
+ * Upload featured image to WordPress Media Library
+ */
 async function uploadFeaturedImage({ site_url, username, app_password, file }) {
   const formData = new FormData();
   formData.append("file", file.buffer, file.originalname);
 
   const res = await axios.post(
-    `${site_url}/wp-json/wp/v2/media`,
+    `${site_url.replace(/\/$/, "")}/wp-json/wp/v2/media`,
     formData,
     {
       headers: {
-        "Content-Disposition": `attachment; filename="${file.originalname}"`,
-        ...formData.getHeaders()
+        ...formData.getHeaders(),
+        "Content-Disposition": `attachment; filename="${file.originalname}"`
       },
       auth: {
         username,
@@ -24,7 +27,7 @@ async function uploadFeaturedImage({ site_url, username, app_password, file }) {
 }
 
 /**
- * Publish a WordPress blog post
+ * Publish / Schedule WordPress blog post
  */
 export async function publishWordPress({
   site_url,
@@ -33,21 +36,34 @@ export async function publishWordPress({
 
   title,
   content,
-
   excerpt = "",
+
   status = "publish",          // publish | draft | future
   slug = null,
-  categories = [],             // category IDs
-  tags = [],                   // tag IDs
-  featured_media = null,       // media ID
-  scheduled_at = null          // "YYYY-MM-DD HH:mm:ss"
+  categories = [],
+  tags = [],
+
+  file = null,                // uploaded image file
+  scheduled_at = null         // "YYYY-MM-DD HH:mm:ss"
 }) {
   try {
+    let featured_media = null;
+
+    // 🖼 Upload featured image if provided
+    if (file) {
+      featured_media = await uploadFeaturedImage({
+        site_url,
+        username,
+        app_password,
+        file
+      });
+    }
+
     const payload = {
       title,
       content,
       excerpt,
-      status,
+      status
     };
 
     if (slug) payload.slug = slug;
@@ -55,9 +71,12 @@ export async function publishWordPress({
     if (tags.length) payload.tags = tags;
     if (featured_media) payload.featured_media = featured_media;
 
-    // 🕒 Scheduled post
+    // 🕒 Scheduled post handling
     if (status === "future" && scheduled_at) {
-      payload.date = scheduled_at;
+      const localISO = scheduled_at.replace(" ", "T");
+
+      payload.date = localISO;
+      payload.date_gmt = new Date(localISO).toISOString();
     }
 
     const response = await axios.post(

@@ -81,30 +81,30 @@ async function processWpPost(post) {
     const wp = accs[0];
 
     const result = await publishWordPress({
-      site_url: wp.site_url,
-      username: wp.username,
-      app_password: wp.app_password,
+      site_url: accs.site_url,
+      username: accs.username,
+      app_password: accs.app_password,
+
       title: post.title,
       content: post.content,
       excerpt: post.excerpt,
-      featured_image_url: post.featured_image_url
+
+      status: "future",
+      scheduled_at: post.scheduled_at,
+      file: post.file
     });
 
-    if (!result.success) {
-      throw new Error(result.error || "WP publish failed");
+    if (result.success) {
+      await db.query(
+        `UPDATE wp_posts
+     SET status='published',
+         wp_post_id=?,
+         updated_at=NOW()
+     WHERE id=?`,
+        [result.external_post_id, row.id]
+      );
     }
 
-    // ✅ Mark as published
-    await db.query(
-      `
-      UPDATE wp_posts
-      SET status = 'published',
-          wp_post_id = ?,
-          updated_at = NOW()
-      WHERE id = ?
-      `,
-      [result.postId, post.id]
-    );
 
     log("✅ WP post published:", post.id, "→ WP ID:", result.postId);
 
