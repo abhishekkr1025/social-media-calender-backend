@@ -74,6 +74,10 @@ app.use(
   })
 );
 
+const upload = multer({
+  dest: "uploads/"   // folder where files will be stored
+});
+
 app.post('/api/posts', upload.single("file"), async (req, res) => {
   try {
     const {
@@ -219,14 +223,14 @@ app.post(
 
 
 
+
+
 // If you want to avoid body-parser, you can replace this with: app.use(express.json());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 
-const upload = multer({
-  dest: "uploads/"   // folder where files will be stored
-});
+
 
 // // ✅ Allow CORS requests from your frontend
 // app.use(
@@ -245,7 +249,6 @@ const upload = multer({
 // }));
 
 // app.options("*", cors());
-
 
 
 
