@@ -8,8 +8,11 @@ async function uploadFeaturedImage({ site_url, username, app_password, file }) {
   const formData = new FormData();
   formData.append("file", file.buffer, file.originalname);
 
+  const mediaUrl = `${site_url}/wp-json/wp/v2/media`
+  log("media url: ", mediaUrl)
+
   const res = await axios.post(
-    `${site_url}/wp-json/wp/v2/media`,
+    mediaUrl,
     formData,
     {
       headers: {
@@ -89,10 +92,12 @@ export async function publishWordPress({
       payload.date = localISO;
       payload.date_gmt = new Date(localISO).toISOString();
     }
-
+  
+    const postUrl = `${site_url}/wp-json/wp/v2/posts`
+    log("Post Url: ",postUrl)
 
     const response = await axios.post(
-      `${site_url}/wp-json/wp/v2/posts`,
+      url,
       payload,
       {
         auth: {
