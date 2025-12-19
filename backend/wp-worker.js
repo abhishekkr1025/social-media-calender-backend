@@ -3,7 +3,7 @@ dotenv.config();
 
 import db from "./db.js";
 import { sleep, log } from "./utils.js";
-import { publishWordPress } from "./services/wordpressPublish.js";
+import { publishWordPress } from "./services/wordpress.js";
 
 const POLL_MS = 5000;
 const BATCH_SIZE = 3;
