@@ -83,9 +83,9 @@ async function processWpPost(post) {
     const wp = accs[0];
 
     const result = await publishWordPress({
-      site_url: accs.site_url,
-      username: accs.username,
-      app_password: accs.app_password,
+      site_url: wp.site_url,
+      username: wp.username,
+      app_password: wp.app_password,
 
       title: post.title,
       content: post.content,
