@@ -65,6 +65,158 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use(
+  session({
+    secret: "super-secret-key", // change this
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false }, // secure:false for localhost
+  })
+);
+
+app.post('/api/posts', upload.single("file"), async (req, res) => {
+  try {
+    const {
+      clientId,
+      title,
+      content,
+      caption,
+      scheduled_at,
+      platforms
+    } = req.body;
+
+    let parsedPlatforms;
+
+    try {
+      parsedPlatforms = JSON.parse(platforms);
+    } catch {
+      parsedPlatforms = platforms;
+    }
+
+    if (!clientId || !scheduled_at || !parsedPlatforms || !Array.isArray(parsedPlatforms) || parsedPlatforms.length === 0) {
+      return res.status(400).json({ error: 'Missing fields' });
+    }
+
+    // ⬇️ File uploaded by Multer
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ error: "File is required" });
+    }
+
+    // ⬇️ File URL accessible by worker
+    const fileUrl = `http://20.40.44.179:5000/${file.path}`;
+
+    const conn = await db.getConnection();
+
+    try {
+      await conn.beginTransaction();
+
+      // 1️⃣ Insert main post
+      const [postResult] = await conn.query(
+        `INSERT INTO posts (client_id, title, caption, image_url, scheduled_at, platforms, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+        [
+          clientId,
+          title || null,
+          caption || content || null,
+          fileUrl,                   // ⬅️ file used instead of imageUrl
+          scheduled_at,
+          JSON.stringify(parsedPlatforms)
+        ]
+      );
+
+      const postId = postResult.insertId;
+
+      // 2️⃣ Insert into queued_posts (one entry per platform)
+      const insertPromises = parsedPlatforms.map(platform => {
+        return conn.query(
+          `INSERT INTO queued_posts (post_id, client_id, platform, scheduled_at, status, created_at)
+           VALUES (?, ?, ?, ?, 'queued', NOW())`,
+          [postId, clientId, platform, scheduled_at]
+        );
+      });
+
+      await Promise.all(insertPromises);
+
+      await conn.commit();
+
+      res.json({
+        success: true,
+        postId,
+        file: fileUrl
+      });
+
+    } catch (err) {
+      await conn.rollback();
+      console.error("enqueue error", err);
+      res.status(500).json({ error: 'Failed to enqueue post', details: err.message });
+    } finally {
+      conn.release();
+    }
+
+  } catch (err) {
+    console.error("server error", err);
+    res.status(500).json({ error: 'Server error', details: err.message });
+  }
+});
+
+app.post(
+  "/api/wp-posts",
+  upload.single("file"),
+  async (req, res) => {
+    try {
+      const {
+        clientId,
+        title,
+        content,
+        excerpt,
+        scheduled_at,
+        status
+      } = req.body;
+
+      let reqBody = {
+
+      }
+
+      if (!clientId || !title || !content || !scheduled_at) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const featured_image_url = req.file
+        ? `http://20.40.44.179:5000/${req.file.path}`
+        : null;
+
+      console.log(featured_image_url)
+      console.log("req.file:", req.file);
+      console.log("req.body:", req.body);
+
+
+
+      await db.query(
+        `
+        INSERT INTO wp_posts
+        (client_id, title, content, excerpt, featured_image_url, scheduled_at, status)
+        VALUES (?, ?, ?, ?, ?, ?, 'scheduled')
+        `,
+        [
+          clientId,
+          title,
+          content,
+          excerpt,
+          featured_image_url,
+          scheduled_at
+        ]
+      );
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error("WP POST ERROR:", err);
+      res.status(500).json({ error: "Server error" });
+    }
+  }
+);
+
 
 
 // If you want to avoid body-parser, you can replace this with: app.use(express.json());
@@ -96,14 +248,7 @@ const upload = multer({
 
 
 
-app.use(
-  session({
-    secret: "super-secret-key", // change this
-    resave: false,
-    saveUninitialized: true,
-    cookie: { secure: false }, // secure:false for localhost
-  })
-);
+
 
 // // 🟢 Get all clients
 app.get("/api/clients", async (req, res) => {
@@ -255,148 +400,7 @@ app.delete("/api/deletePosts/:id", async (req, res) => {
 //   }
 // });
 
-app.post('/api/posts', upload.single("file"), async (req, res) => {
-  try {
-    const {
-      clientId,
-      title,
-      content,
-      caption,
-      scheduled_at,
-      platforms
-    } = req.body;
 
-    let parsedPlatforms;
-
-    try {
-      parsedPlatforms = JSON.parse(platforms);
-    } catch {
-      parsedPlatforms = platforms;
-    }
-
-    if (!clientId || !scheduled_at || !parsedPlatforms || !Array.isArray(parsedPlatforms) || parsedPlatforms.length === 0) {
-      return res.status(400).json({ error: 'Missing fields' });
-    }
-
-    // ⬇️ File uploaded by Multer
-    const file = req.file;
-
-    if (!file) {
-      return res.status(400).json({ error: "File is required" });
-    }
-
-    // ⬇️ File URL accessible by worker
-    const fileUrl = `http://20.40.44.179:5000/${file.path}`;
-
-    const conn = await db.getConnection();
-
-    try {
-      await conn.beginTransaction();
-
-      // 1️⃣ Insert main post
-      const [postResult] = await conn.query(
-        `INSERT INTO posts (client_id, title, caption, image_url, scheduled_at, platforms, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-        [
-          clientId,
-          title || null,
-          caption || content || null,
-          fileUrl,                   // ⬅️ file used instead of imageUrl
-          scheduled_at,
-          JSON.stringify(parsedPlatforms)
-        ]
-      );
-
-      const postId = postResult.insertId;
-
-      // 2️⃣ Insert into queued_posts (one entry per platform)
-      const insertPromises = parsedPlatforms.map(platform => {
-        return conn.query(
-          `INSERT INTO queued_posts (post_id, client_id, platform, scheduled_at, status, created_at)
-           VALUES (?, ?, ?, ?, 'queued', NOW())`,
-          [postId, clientId, platform, scheduled_at]
-        );
-      });
-
-      await Promise.all(insertPromises);
-
-      await conn.commit();
-
-      res.json({
-        success: true,
-        postId,
-        file: fileUrl
-      });
-
-    } catch (err) {
-      await conn.rollback();
-      console.error("enqueue error", err);
-      res.status(500).json({ error: 'Failed to enqueue post', details: err.message });
-    } finally {
-      conn.release();
-    }
-
-  } catch (err) {
-    console.error("server error", err);
-    res.status(500).json({ error: 'Server error', details: err.message });
-  }
-});
-
-app.post(
-  "/api/wp-posts",
-  upload.single("file"),
-  async (req, res) => {
-    try {
-      const {
-        clientId,
-        title,
-        content,
-        excerpt,
-        scheduled_at,
-        status
-      } = req.body;
-
-      let reqBody = {
-
-      }
-
-      if (!clientId || !title || !content || !scheduled_at) {
-        return res.status(400).json({ error: "Missing required fields" });
-      }
-
-      const featured_image_url = req.file
-        ? `http://20.40.44.179:5000/${req.file.path}`
-        : null;
-
-      console.log(featured_image_url)
-      console.log("req.file:", req.file);
-      console.log("req.body:", req.body);
-
-
-
-      await db.query(
-        `
-        INSERT INTO wp_posts
-        (client_id, title, content, excerpt, featured_image_url, scheduled_at, status)
-        VALUES (?, ?, ?, ?, ?, ?, 'scheduled')
-        `,
-        [
-          clientId,
-          title,
-          content,
-          excerpt,
-          featured_image_url,
-          scheduled_at
-        ]
-      );
-
-      res.json({ success: true });
-    } catch (err) {
-      console.error("WP POST ERROR:", err);
-      res.status(500).json({ error: "Server error" });
-    }
-  }
-);
 
 
 app.get('/api/wp-posts', async (req, res) => {
