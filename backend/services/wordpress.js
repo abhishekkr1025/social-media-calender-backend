@@ -9,7 +9,7 @@ async function uploadFeaturedImage({ site_url, username, app_password, file }) {
   formData.append("file", file.buffer, file.originalname);
 
   const mediaUrl = `${site_url}/wp-json/wp/v2/media`
-  log("media url: ", mediaUrl)
+  console.log("media url: ", mediaUrl)
 
   const res = await axios.post(
     mediaUrl,
@@ -94,7 +94,7 @@ export async function publishWordPress({
     }
   
     const postUrl = `${site_url}/wp-json/wp/v2/posts`
-    log("Post Url: ",postUrl)
+    console.log("Post Url: ",postUrl)
 
     const response = await axios.post(
       url,
