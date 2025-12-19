@@ -97,7 +97,7 @@ export async function publishWordPress({
     console.log("Post Url: ",postUrl)
 
     const response = await axios.post(
-      url,
+      postUrl,
       payload,
       {
         auth: {
