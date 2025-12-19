@@ -106,7 +106,7 @@ async function processWpPost(post) {
     }
 
 
-    log("✅ WP post published:", post.id, "→ WP ID:", result.postId);
+    log("✅ WP post published:", post.id, "→ WP ID:", result.external_post_id);
 
   } catch (err) {
     await db.query(
