@@ -94,6 +94,8 @@ async function processWpPost(post) {
       file: post.file
     });
 
+    log("result: ",result)
+
     if (result.success) {
       await db.query(
         `UPDATE wp_posts
