@@ -13,6 +13,31 @@ function nowStr() {
   return new Date().toISOString();
 }
 
+async function uploadFeaturedImage({ site_url, username, app_password, file }) {
+  const formData = new FormData();
+  formData.append("file", file.buffer, file.originalname);
+
+  const mediaUrl = `${site_url}/wp-json/wp/v2/media`
+  console.log("media url: ", mediaUrl)
+
+  const res = await axios.post(
+    mediaUrl,
+    formData,
+    {
+      headers: {
+        ...formData.getHeaders(),
+        "Content-Disposition": `attachment; filename="${file.originalname}"`
+      },
+      auth: {
+        username,
+        password: app_password
+      }
+    }
+  );
+
+  return res.data.id; // media_id
+}
+
 
 
 async function claimAndProcessWpBatch() {
@@ -82,6 +107,18 @@ async function processWpPost(post) {
 
     const wp = accs[0];
 
+    let featuredMediaId = null;
+
+    if (post.featured_image_url || post.file) {
+      featuredMediaId = await uploadFeaturedImage({
+        site_url: wp.site_url,
+        username: wp.username,
+        app_password: wp.app_password,
+        file: post.file // multer file
+      });
+    }
+
+
     const result = await publishWordPress({
       site_url: wp.site_url,
       username: wp.username,
@@ -93,10 +130,10 @@ async function processWpPost(post) {
 
       status: "future",
       scheduled_at: post.scheduled_at,
-      file: post.file
+      featured_media: featuredMediaId // ✅ THIS FIXES IT
     });
 
-    log("result: ",result)
+
 
     if (result.success) {
       await db.query(
