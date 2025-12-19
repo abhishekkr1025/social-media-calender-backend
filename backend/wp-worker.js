@@ -84,7 +84,7 @@ async function processWpPost(post) {
 
     let featuredMediaId = null;
 
-    if (row.featured_image_url || row.file) {
+    if (post.featured_image_url || post.file) {
       featuredMediaId = await uploadFeaturedImage({
         site_url: wp.site_url,
         username: wp.username,
