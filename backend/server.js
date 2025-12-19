@@ -344,7 +344,7 @@ app.post('/api/posts', upload.single("file"), async (req, res) => {
 
 app.post(
   "/api/wp-posts",
-  upload.single("featured_image"),
+  upload.single("file"),
   async (req, res) => {
     try {
       const {
@@ -368,6 +368,7 @@ app.post(
         ? `http://20.40.44.179:5000/${req.file.path}`
         : null;
 
+        console.log(featured_image_url)
 
       await db.query(
         `
