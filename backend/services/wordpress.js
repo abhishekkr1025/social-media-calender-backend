@@ -26,7 +26,15 @@ async function uploadFeaturedImage({ site_url, username, app_password, file }) {
   return res.data.id; // media_id
 }
 
-
+function normalizeWpDate(scheduled_at) {
+  if (scheduled_at instanceof Date) {
+    return scheduled_at.toISOString().slice(0, 19);
+  }
+  if (typeof scheduled_at === "string") {
+    return scheduled_at.replace(" ", "T");
+  }
+  return null;
+}
 
 
 /**
@@ -76,7 +84,7 @@ export async function publishWordPress({
 
     // 🕒 Scheduled post handling
     if (status === "future" && scheduled_at) {
-      const localISO = normalizeWpScheduledAt(scheduled_at);
+      const localISO = normalizeWpDate(scheduled_at);
 
       payload.date = localISO;
       payload.date_gmt = new Date(localISO).toISOString();
