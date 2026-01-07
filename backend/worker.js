@@ -339,6 +339,28 @@ async function processJob(row) {
 
   }
 
+  if (row.platform === "telegram") {
+  const [accs] = await db.query(
+    "SELECT * FROM telegram_accounts WHERE client_id = ?",
+    [row.client_id]
+  );
+
+  if (!accs.length) {
+    return { success: false, error: "No Telegram account connected" };
+  }
+
+  const acc = accs[0];
+
+  return TG.publishTelegram({
+    chat_id: acc.chat_id,
+    text: post.caption || post.title || post.content || "",
+    media_url: post.image_url
+  });
+}
+
+
+
+
 
 
 

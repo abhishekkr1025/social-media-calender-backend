@@ -18,6 +18,7 @@ import { publishInstagram } from './services/instagram.js';
 import { publishFacebook } from './services/facebook.js';
 import { publishYouTube } from './services/youtube.js';
 import { publishWordPress } from './services/wordpress.js';
+import { publishTelegram } from './services/telegram.js';
 
 
 import instagramRoutes from './routes/connectToInstgaram.js';
@@ -25,6 +26,7 @@ import linkedinRoutes from './routes/connectToLinkedin.js';
 import twitterRoutes from './routes/connectToTwiter.js';
 import youtubeRoutes from './routes/connectToYoutube.js';
 import wordpressRoutes from './routes/connectToWordpress.js';
+import telegramRoutes from './routes/connectToTelegram.js';
 
 
 const app = express();
@@ -801,6 +803,66 @@ app.post("/api/publish/wordpress", async (req, res) => {
   }
 });
 
+app.post("/api/publish/telegram", async (req, res) => {
+  try {
+    const { clientId, text, media_url } = req.body;
+
+    if (!clientId) {
+      return res.status(400).json({
+        success: false,
+        error: "clientId is required"
+      });
+    }
+
+    if (!text && !media_url) {
+      return res.status(400).json({
+        success: false,
+        error: "Either text or media_url is required"
+      });
+    }
+
+    // 1️⃣ Fetch Telegram account for this client
+    const [rows] = await db.query(
+      `SELECT chat_id, username
+       FROM telegram_accounts
+       WHERE client_id = ?
+       LIMIT 1`,
+      [clientId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "Telegram is not connected for this client"
+      });
+    }
+
+    const { chat_id } = rows[0];
+
+    // 2️⃣ Publish to Telegram
+    const result = await publishTelegram({
+      chat_id,
+      text,
+      media_url
+    });
+
+    // 3️⃣ Return response
+    return res.json(result);
+
+  } catch (err) {
+    console.error("❌ Telegram publish error:", err);
+
+    return res.status(500).json({
+      success: false,
+      error: "Telegram publish failed",
+      details: err.message
+    });
+  }
+});
+
+
+
+
 
 
 app.get("/api/clients/:clientId/linkedin/account", async (req, res) => {
@@ -922,6 +984,27 @@ app.get("/api/clients/:clientId/wordpress/account", async (req, res) => {
   }
 })
 
+app.get("/api/clients/:clientId/telegram/account", async (req, res) => {
+  const { clientId } = req.params;
+  try {
+    const [rows] = await db.query(
+      `SELECT client_id, chat_id, username, created_at
+       FROM telegram_accounts
+       WHERE client_id = ?
+       LIMIT 1`,
+      [clientId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Telegram not connected" });
+    }
+
+    res.json(rows[0]);
+  } catch (err) {
+    console.error("❌ Telegram fetch error:", err);
+    res.status(500).json({ error: "Failed to fetch Telegram account" });
+  }
+})
 
 
 
@@ -967,6 +1050,7 @@ app.use("/auth", linkedinRoutes);
 app.use("/auth", twitterRoutes);
 app.use("/auth", youtubeRoutes);
 app.use("/auth", wordpressRoutes);
+app.use("/auth",telegramRoutes);
 app.use("/uploads", express.static("uploads"));
 
 
