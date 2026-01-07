@@ -12,6 +12,7 @@ import * as TW from "./services/twitter.js";
 import * as FB from "./services/facebook.js";
 import * as YT from "./services/youtube.js";
 import * as WP from "./services/wordpress.js";
+import * as TG from "./services/telegram.js";
 
 
 

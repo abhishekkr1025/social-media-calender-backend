@@ -31,18 +31,7 @@ import telegramRoutes from './routes/connectToTelegram.js';
 
 const app = express();
 
-// app.use((req, res, next) => {
-//   res.header("Access-Control-Allow-Origin", "http://localhost:5173");
-//   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-//   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-//   res.header("Access-Control-Allow-Credentials", "true");
 
-//   if (req.method === "OPTIONS") {
-//     return res.sendStatus(200);
-//   }
-
-//   next();
-// });
 
 const allowedOrigins = [
   "http://localhost:5173",
@@ -234,26 +223,6 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 
 
-// // ✅ Allow CORS requests from your frontend
-// app.use(
-//   cors({
-//     origin: "http://localhost:5173",
-//     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-//     credentials: true,
-//   })
-// );
-
-// app.use(cors({
-//     origin: ["http://localhost:5173", "https://prod.panditjee.com"],
-//     credentials: true,
-//     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-//     allowedHeaders: ['Content-Type', 'Authorization']
-// }));
-
-// app.options("*", cors());
-
-
-
 
 // // 🟢 Get all clients
 app.get("/api/clients", async (req, res) => {
@@ -339,71 +308,9 @@ app.delete("/api/deletePosts/:id", async (req, res) => {
   }
 });
 
-// Enqueue endpoint: create post + queued rows
-// Expects body: { clientId, title, content, image_url, scheduled_at (ISO), platforms: ["instagram","linkedin"] }
-// app.post('/api/posts', async (req, res) => {
-//   try {
-//     const {
-//       clientId,
-//       title,
-//       content,
-//       caption,
-//       imageUrl,
-//       scheduled_at,
-//       platforms
-//     } = req.body;
 
-//     if (!clientId || !scheduled_at || !platforms || !Array.isArray(platforms) || platforms.length === 0) {
-//       return res.status(400).json({ error: 'Missing fields' });
-//     }
 
-//     const conn = await db.getConnection();
 
-//     try {
-//       await conn.beginTransaction();
-
-//       const [postResult] = await conn.query(
-//         `INSERT INTO posts (client_id, title, caption, image_url, scheduled_at, platforms, created_at)
-//          VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-//         [
-//           clientId,
-//           title || null,
-//           caption || content || null,
-//           imageUrl || null,
-//           scheduled_at,
-//           JSON.stringify(platforms)
-//         ]
-//       );
-
-//       const postId = postResult.insertId;
-
-//       // insert queued_posts - one row per platform
-//       const insertPromises = platforms.map(platform => {
-//         return conn.query(
-//           `INSERT INTO queued_posts (post_id, client_id, platform, scheduled_at, status, created_at)
-//            VALUES (?, ?, ?, ?, ?, NOW())`,
-//           [postId, clientId, platform, scheduled_at, 'queued']
-//         );
-//       });
-
-//       await Promise.all(insertPromises);
-
-//       await conn.commit();
-//       res.json({ success: true, postId });
-
-//     } catch (err) {
-//       await conn.rollback();
-//       log('enqueue error', err);
-//       res.status(500).json({ error: 'Failed to enqueue post', details: err.message });
-//     } finally {
-//       conn.release();
-//     }
-
-//   } catch (err) {
-//     log('server error', err);
-//     res.status(500).json({ error: 'Server error' });
-//   }
-// });
 
 
 
