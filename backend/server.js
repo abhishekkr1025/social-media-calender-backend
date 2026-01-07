@@ -114,7 +114,7 @@ app.post('/api/posts', upload.single("file"), async (req, res) => {
     // ⬇️ File URL accessible by worker
     // const fileUrl = `http://20.40.44.179:5000/${file.path}`;
 
-    const fileUrl = `http://20.40.44.179:5000/uploads/${file.filename}`;
+    const fileUrl = `https://prod.panditjee.com/uploads/${file.filename}`;
 
 
     const conn = await db.getConnection();
