@@ -3,6 +3,7 @@
 // server.js
 import dotenv from 'dotenv';
 dotenv.config();
+import path from "path";  
 
 import express from 'express';
 import bodyParser from 'body-parser';   // or remove this and use express.json()
@@ -65,9 +66,20 @@ app.use(
   })
 );
 
-const upload = multer({
-  dest: "uploads/"   // folder where files will be stored
+// const upload = multer({
+//   dest: "uploads/"   // folder where files will be stored
+// });
+
+const storage = multer.diskStorage({
+  destination: "uploads/",
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+    cb(null, uniqueName);
+  }
 });
+
+const upload = multer({ storage });
 
 app.post('/api/posts', upload.single("file"), async (req, res) => {
   try {
@@ -100,7 +112,10 @@ app.post('/api/posts', upload.single("file"), async (req, res) => {
     }
 
     // ⬇️ File URL accessible by worker
-    const fileUrl = `http://20.40.44.179:5000/${file.path}`;
+    // const fileUrl = `http://20.40.44.179:5000/${file.path}`;
+
+    const fileUrl = `http://20.40.44.179:5000/uploads/${file.filename}`;
+
 
     const conn = await db.getConnection();
 
