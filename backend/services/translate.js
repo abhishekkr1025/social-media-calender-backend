@@ -10,7 +10,7 @@ export async function translateText({ text, language }) {
     return text;
   }
 
-  const response = await axios.post("http://localhost:5010/chat", {
+  const response = await axios.post("http://20.40.44.179:5010/translate", {
     user_id: "wp-scheduler",
     prompt: text,
     language,
