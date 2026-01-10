@@ -3,7 +3,7 @@
 // server.js
 import dotenv from 'dotenv';
 dotenv.config();
-import path from "path";  
+import path from "path";
 
 import express from 'express';
 import bodyParser from 'body-parser';   // or remove this and use express.json()
@@ -28,6 +28,7 @@ import twitterRoutes from './routes/connectToTwiter.js';
 import youtubeRoutes from './routes/connectToYoutube.js';
 import wordpressRoutes from './routes/connectToWordpress.js';
 import telegramRoutes from './routes/connectToTelegram.js';
+import { translateText } from './services/translate.js';
 
 
 const app = express();
@@ -193,6 +194,12 @@ app.post("/api/wp-posts", upload.single("file"), async (req, res) => {
     if (!clientId || !title || !content || !scheduled_at) {
       return res.status(400).json({ error: "Missing required fields" });
     }
+
+    title = await translateText({ text: title, language });
+    content = await translateText({ text: content, language });
+    excerpt = excerpt
+      ? await translateText({ text: excerpt, language })
+      : null;
 
     await db.query(
       `
@@ -960,7 +967,7 @@ app.use("/auth", linkedinRoutes);
 app.use("/auth", twitterRoutes);
 app.use("/auth", youtubeRoutes);
 app.use("/auth", wordpressRoutes);
-app.use("/auth",telegramRoutes);
+app.use("/auth", telegramRoutes);
 app.use("/uploads", express.static("uploads"));
 
 
