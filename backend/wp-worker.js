@@ -83,21 +83,21 @@ async function processWpPost(post) {
 
     const wp = accs[0];
 
-    let featuredMediaId = null;
+    // let featuredMediaId = null;
 
-    if (post.featured_image_url) {
-      console.log("📸 Uploading featured image:", post.featured_image_url);
-    }
+    // if (post.featured_image_url) {
+    //   console.log("📸 Uploading featured image:", post.featured_image_url);
+    // }
 
 
-    if (post.featured_image_url) {
-      featuredMediaId = await uploadFeaturedImageFromUrl({
-        site_url: wp.site_url,
-        username: wp.username,
-        app_password: wp.app_password,
-        image_url: post.featured_image_url
-      });
-    }
+    // if (post.featured_image_url) {
+    //   featuredMediaId = await uploadFeaturedImageFromUrl({
+    //     site_url: wp.site_url,
+    //     username: wp.username,
+    //     app_password: wp.app_password,
+    //     image_url: post.featured_image_url
+    //   });
+    // }
 
     const result = await publishWordPress({
       site_url: wp.site_url,
@@ -109,9 +109,9 @@ async function processWpPost(post) {
       excerpt: post.excerpt,
 
       status: "future",
-      scheduled_at: post.scheduled_at,
-      featured_media: featuredMediaId
+      scheduled_at: post.scheduled_at
     });
+
 
     // log("result: ",result)
 

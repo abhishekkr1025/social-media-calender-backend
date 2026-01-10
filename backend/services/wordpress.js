@@ -184,7 +184,7 @@ async function publishWordPress({
     excerpt,
     status,
 
-    // 🔥 SAME IMAGE FOR EVERY POST
+    // ✅ SAME IMAGE FOR EVERY POST
     featured_media: DEFAULT_FEATURED_MEDIA_ID
   };
 
@@ -212,6 +212,7 @@ async function publishWordPress({
     raw: response.data
   };
 }
+
 
 
 export {
