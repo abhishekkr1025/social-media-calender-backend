@@ -3,7 +3,7 @@
 // server.js
 import dotenv from 'dotenv';
 dotenv.config();
-import path from "path";
+import path from "path";  
 
 import express from 'express';
 import bodyParser from 'body-parser';   // or remove this and use express.json()
@@ -171,72 +171,46 @@ app.post('/api/posts', upload.single("file"), async (req, res) => {
   }
 });
 
-app.post(
-  "/api/wp-posts",
-  async (req, res) => {
-    try {
-      const {
-        clientId,
-        title,
-        content,
-        excerpt,
-        scheduled_at,
-        status
-      } = req.body;
-
-      let reqBody = {
-
-      }
-
-      if (!clientId || !title || !content || !scheduled_at) {
-        return res.status(400).json({ error: "Missing required fields" });
-      }
-
-      // const featured_image_url = req.file
-      //   ? `http://20.40.44.179:5000/${req.file.path}`
-      //   : null;
-
-      console.log(featured_image_url)
-      console.log("req.file:", req.file);
-      console.log("req.body:", req.body);
-
-
-
-      await db.query(
-        `
-  INSERT INTO wp_posts
-  (client_id, title, content, excerpt, scheduled_at, status)
-  VALUES (?, ?, ?, ?, ?, 'scheduled')
-  `,
-        [
-          clientId,
-          title,
-          content,
-          excerpt,
-          scheduled_at
-        ]
-      );
-
-
-      res.json({ success: true });
-    } catch (err) {
-      console.error("WP POST ERROR:", err);
-      res.status(500).json({ error: "Server error" });
-    }
-  }
-);
-
-
-
-
-
 // If you want to avoid body-parser, you can replace this with: app.use(express.json());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+app.post("/api/wp-posts", async (req, res) => {
+  try {
+    const {
+      clientId,
+      title,
+      content,
+      excerpt,
+      scheduled_at,
+      status
+    } = req.body;
 
+    if (!clientId || !title || !content || !scheduled_at) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
 
+    await db.query(
+      `
+      INSERT INTO wp_posts
+      (client_id, title, content, excerpt, scheduled_at, status)
+      VALUES (?, ?, ?, ?, ?, 'scheduled')
+      `,
+      [
+        clientId,
+        title,
+        content,
+        excerpt || null,
+        scheduled_at
+      ]
+    );
 
+    res.json({ success: true });
+  } catch (err) {
+    console.error("WP POST ERROR:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
 // // 🟢 Get all clients
 app.get("/api/clients", async (req, res) => {
@@ -971,7 +945,7 @@ app.use("/auth", linkedinRoutes);
 app.use("/auth", twitterRoutes);
 app.use("/auth", youtubeRoutes);
 app.use("/auth", wordpressRoutes);
-app.use("/auth", telegramRoutes);
+app.use("/auth",telegramRoutes);
 app.use("/uploads", express.static("uploads"));
 
 
