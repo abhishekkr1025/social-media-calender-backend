@@ -188,7 +188,8 @@ app.post("/api/wp-posts", upload.single("file"), async (req, res) => {
       content,
       excerpt,
       scheduled_at,
-      status
+      status,
+      language = "English" // ✅ DEFAULT
     } = req.body;
 
     if (!clientId || !title || !content || !scheduled_at) {
