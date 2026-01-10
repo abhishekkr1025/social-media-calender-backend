@@ -3,7 +3,7 @@ dotenv.config();
 
 import db from "./db.js";
 import { sleep, log } from "./utils.js";
-import { publishWordPress, uploadFeaturedImage, uploadFeaturedImageFromUrl } from "./services/wordpress.js";
+import { publishWordPress } from "./services/wordpress.js";
 
 
 const POLL_MS = 5000;
