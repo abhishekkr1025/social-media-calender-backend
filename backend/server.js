@@ -182,14 +182,14 @@ app.post('/api/posts', upload.single("file"), async (req, res) => {
 
 app.post("/api/wp-posts", upload.single("file"), async (req, res) => {
   try {
-    const {
+    let {
       clientId,
       title,
       content,
       excerpt,
       scheduled_at,
       status,
-      language = "English" // ✅ DEFAULT
+      language = "Hindi" // ✅ DEFAULT
     } = req.body;
 
     if (!clientId || !title || !content || !scheduled_at) {
