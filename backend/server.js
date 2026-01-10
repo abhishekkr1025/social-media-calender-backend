@@ -32,6 +32,9 @@ import telegramRoutes from './routes/connectToTelegram.js';
 
 const app = express();
 
+// body-parser is built into Express now
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 
 const allowedOrigins = [
@@ -82,8 +85,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+
 
 app.post('/api/posts', upload.single("file"), async (req, res) => {
   try {
@@ -175,9 +177,7 @@ app.post('/api/posts', upload.single("file"), async (req, res) => {
   }
 });
 
-// If you want to avoid body-parser, you can replace this with: app.use(express.json());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
 
 app.post(
   "/api/wp-posts",
