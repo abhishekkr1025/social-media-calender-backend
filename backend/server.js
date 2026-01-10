@@ -179,60 +179,43 @@ app.post('/api/posts', upload.single("file"), async (req, res) => {
 
 
 
-app.post(
-  "/api/wp-posts",
-  async (req, res) => {
-    try {
-      const {
+app.post("/api/wp-posts", upload.single("file"), async (req, res) => {
+  try {
+    const {
+      clientId,
+      title,
+      content,
+      excerpt,
+      scheduled_at,
+      status
+    } = req.body;
+
+    if (!clientId || !title || !content || !scheduled_at) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    await db.query(
+      `
+      INSERT INTO wp_posts
+      (client_id, title, content, excerpt, scheduled_at, status)
+      VALUES (?, ?, ?, ?, ?, 'scheduled')
+      `,
+      [
         clientId,
         title,
         content,
-        excerpt,
-        scheduled_at,
-        status
-      } = req.body;
+        excerpt || null,
+        scheduled_at
+      ]
+    );
 
-      let reqBody = {
-
-      }
-
-      if (!clientId || !title || !content || !scheduled_at) {
-        return res.status(400).json({ error: "Missing required fields" });
-      }
-
-      // const featured_image_url = req.file
-      //   ? `http://20.40.44.179:5000/${req.file.path}`
-      //   : null;
-
-      console.log(featured_image_url)
-      console.log("req.file:", req.file);
-      console.log("req.body:", req.body);
-
-
-
-      await db.query(
-        `
-        INSERT INTO wp_posts
-        (client_id, title, content, excerpt, featured_image_url, scheduled_at, status)
-        VALUES (?, ?, ?, ?, ?, ?, 'scheduled')
-        `,
-        [
-          clientId,
-          title,
-          content,
-          excerpt,
-          featured_image_url,
-          scheduled_at
-        ]
-      );
-
-      res.json({ success: true });
-    } catch (err) {
-      console.error("WP POST ERROR:", err);
-      res.status(500).json({ error: "Server error" });
-    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error("WP POST ERROR:", err);
+    res.status(500).json({ error: "Server error" });
   }
-);
+});
+
 
 
 
