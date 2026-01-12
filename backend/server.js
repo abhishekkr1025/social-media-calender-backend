@@ -189,18 +189,18 @@ app.post("/api/wp-posts", upload.single("file"), async (req, res) => {
       excerpt,
       scheduled_at,
       status,
-      language = "Hindi" // ✅ DEFAULT
+      language = "English" // ✅ DEFAULT
     } = req.body;
 
     if (!clientId || !title || !content || !scheduled_at) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    title = await translateText({ text: title, language });
-    content = await translateText({ text: content, language });
-    excerpt = excerpt
-      ? await translateText({ text: excerpt, language })
-      : null;
+    // title = await translateText({ text: title, language });
+    // content = await translateText({ text: content, language });
+    // excerpt = excerpt
+    //   ? await translateText({ text: excerpt, language })
+    //   : null;
 
     await db.query(
       `
