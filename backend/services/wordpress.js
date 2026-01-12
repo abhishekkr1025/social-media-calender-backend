@@ -1,5 +1,6 @@
 import axios from "axios";
 import FormData from "form-data";
+import { translateText } from "./translate";
 
 // /**
 //  * Upload featured image to WordPress Media Library
