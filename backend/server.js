@@ -1010,9 +1010,6 @@ app.use("/uploads", express.static("uploads"));
 
 
 
-const PORT = Number(process.env.PORT) || 5000;
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log("🚀 API server listening on", PORT);
-});
-
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => log(`API server listening on port ${PORT}`));
