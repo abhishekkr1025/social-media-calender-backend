@@ -214,10 +214,54 @@ async function publishWordPress({
   };
 }
 
+async function publishToMultisite({
+  post,
+  wordpressSites   // fetched from DB
+}) {
+  const results = [];
+
+  for (const site of wordpressSites) {
+    const siteUrl = `${site.site_url}${site.site_path}`;
+
+    let title = post.title;
+    let content = post.content;
+    let excerpt = post.excerpt;
+
+    // 🌐 Translate if needed
+    if (site.language !== "English") {
+      title = await translateText({ text: title, language: site.language });
+      content = await translateText({ text: content, language: site.language });
+      excerpt = excerpt
+        ? await translateText({ text: excerpt, language: site.language })
+        : "";
+    }
+
+    const result = await publishWordPress({
+      site_url: siteUrl,
+      username: site.username,
+      app_password: site.app_password,
+      title,
+      content,
+      excerpt,
+      status: post.status === "scheduled" ? "future" : "publish",
+      scheduled_at: post.scheduled_at
+    });
+
+    results.push({
+      site: site.language,
+      success: result.success,
+      url: result.url
+    });
+  }
+
+  return results;
+}
+
+
 
 
 export {
-  publishWordPress
+  publishWordPress, publishToMultisite  
 }
 
 

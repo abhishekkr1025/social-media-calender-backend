@@ -880,27 +880,67 @@ app.get("/api/clients/:clientId/youtube/account", async (req, res) => {
   }
 });
 
-app.get("/api/clients/:clientId/wordpress/account", async (req, res) => {
+app.get("/api/clients/:clientId/wordpress/accounts", async (req, res) => {
   const { clientId } = req.params;
+
   try {
     const [rows] = await db.query(
-      `SELECT site_url, username, app_password, wp_user_id
-       FROM wordpress_accounts
-       WHERE client_id = ?
-       LIMIT 1`,
+      `
+      SELECT
+        id,
+        site_url,
+        site_path,
+        language,
+        username,
+        wp_user_id,
+        created_at
+      FROM wordpress_sites
+      WHERE client_id = ?
+      ORDER BY language ASC
+      `,
       [clientId]
     );
 
     if (rows.length === 0) {
-      return res.status(404).json({ error: "Wordpress not connected" });
+      return res.status(404).json({
+        connected: false,
+        sites: []
+      });
     }
 
-    res.json(rows[0]);
+    res.json({
+      connected: true,
+      sites: rows
+    });
+
   } catch (err) {
-    console.error("❌ Wordpress fetch error:", err);
-    res.status(500).json({ error: "Failed to fetch Wordpress account" });
+    console.error("❌ Wordpress multisite fetch error:", err);
+    res.status(500).json({ error: "Failed to fetch WordPress sites" });
   }
-})
+});
+
+
+app.get("/api/clients/:clientId/wordpress/site/:language", async (req, res) => {
+  const { clientId, language } = req.params;
+
+  const [rows] = await db.query(
+    `
+    SELECT *
+    FROM wordpress_sites
+    WHERE client_id = ? AND language = ?
+    LIMIT 1
+    `,
+    [clientId, language]
+  );
+
+  if (!rows.length) {
+    return res.status(404).json({ error: "Site not found" });
+  }
+
+  res.json(rows[0]);
+});
+
+
 
 app.get("/api/clients/:clientId/telegram/account", async (req, res) => {
   const { clientId } = req.params;
