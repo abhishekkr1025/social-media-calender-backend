@@ -7,7 +7,7 @@ import path from "path";
 
 import express from 'express';
 import bodyParser from 'body-parser';   // or remove this and use express.json()
-// import db from './db.js';
+import db from './db.js';
 import { log } from './utils.js';
 import cors from 'cors';
 import session from "express-session";
@@ -28,7 +28,7 @@ import twitterRoutes from './routes/connectToTwiter.js';
 import youtubeRoutes from './routes/connectToYoutube.js';
 import wordpressRoutes from './routes/connectToWordpress.js';
 import telegramRoutes from './routes/connectToTelegram.js';
-
+import { translateText } from './services/translate.js';
 
 
 const app = express();
