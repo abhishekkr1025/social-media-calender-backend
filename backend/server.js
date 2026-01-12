@@ -179,50 +179,45 @@ app.post('/api/posts', upload.single("file"), async (req, res) => {
 });
 
 
-
 app.post("/api/wp-posts", upload.single("file"), async (req, res) => {
   try {
-    let {
+    const {
       clientId,
       title,
       content,
       excerpt,
       scheduled_at,
-      status,
-      language = "English" // ✅ DEFAULT
+      language = "English"
     } = req.body;
 
     if (!clientId || !title || !content || !scheduled_at) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // title = await translateText({ text: title, language });
-    // content = await translateText({ text: content, language });
-    // excerpt = excerpt
-    //   ? await translateText({ text: excerpt, language })
-    //   : null;
-
     await db.query(
       `
       INSERT INTO wp_posts
-      (client_id, title, content, excerpt, scheduled_at, status)
-      VALUES (?, ?, ?, ?, ?, 'scheduled')
+      (client_id, title, content, excerpt, scheduled_at, status, language)
+      VALUES (?, ?, ?, ?, ?, 'scheduled', ?)
       `,
       [
         clientId,
         title,
         content,
         excerpt || null,
-        scheduled_at
+        scheduled_at,
+        language
       ]
     );
 
     res.json({ success: true });
+
   } catch (err) {
     console.error("WP POST ERROR:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
+
 
 
 

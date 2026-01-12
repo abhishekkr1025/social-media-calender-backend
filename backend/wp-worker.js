@@ -4,6 +4,7 @@ dotenv.config();
 import db from "./db.js";
 import { sleep, log } from "./utils.js";
 import { publishWordPress } from "./services/wordpress.js";
+import { translateText } from "./services/translate.js";
 
 
 const POLL_MS = 5000;
