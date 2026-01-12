@@ -880,7 +880,7 @@ app.get("/api/clients/:clientId/youtube/account", async (req, res) => {
   }
 });
 
-app.get("/api/clients/:clientId/wordpress/accounts", async (req, res) => {
+app.get("/api/clients/:clientId/wordpress/account", async (req, res) => {
   const { clientId } = req.params;
 
   try {
