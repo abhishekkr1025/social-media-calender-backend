@@ -168,7 +168,7 @@ function normalizeWpDate(scheduled_at) {
 //   }
 // }
 
-const DEFAULT_FEATURED_MEDIA_ID = 51;
+const DEFAULT_FEATURED_MEDIA_ID = 264857;
 
 async function publishWordPress({
   site_url,
