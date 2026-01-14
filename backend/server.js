@@ -29,6 +29,7 @@ import youtubeRoutes from './routes/connectToYoutube.js';
 import wordpressRoutes from './routes/connectToWordpress.js';
 import telegramRoutes from './routes/connectToTelegram.js';
 import { translateText } from './services/translate.js';
+import axios from 'axios';
 
 
 const app = express();
@@ -1023,6 +1024,143 @@ app.get("/api/wordpress-sites", async (req, res) => {
     });
   }
 });
+
+
+// ✏️ Update WordPress site
+app.put("/api/wordpress-sites/:id", async (req, res) => {
+  const { id } = req.params;
+
+  const {
+    site_url,
+    site_path,
+    language,
+    username,
+    app_password,
+    default_media_id
+  } = req.body;
+
+  try {
+    if (!site_url || !username) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // 🔐 If password is provided → update it
+    if (app_password && app_password.trim() !== "") {
+      await db.query(
+        `
+        UPDATE wordpress_sites
+        SET
+          site_url = ?,
+          site_path = ?,
+          language = ?,
+          username = ?,
+          app_password = ?,
+          default_media_id = ?
+        WHERE id = ?
+        `,
+        [
+          site_url,
+          site_path || null,
+          language,
+          username,
+          app_password,
+          default_media_id || null,
+          id
+        ]
+      );
+    } else {
+      // 🔐 Keep existing password
+      await db.query(
+        `
+        UPDATE wordpress_sites
+        SET
+          site_url = ?,
+          site_path = ?,
+          language = ?,
+          username = ?,
+          default_media_id = ?
+        WHERE id = ?
+        `,
+        [
+          site_url,
+          site_path || null,
+          language,
+          username,
+          default_media_id || null,
+          id
+        ]
+      );
+    }
+
+    res.json({ success: true });
+
+  } catch (error) {
+    console.error("❌ Failed to update WordPress site:", error);
+    res.status(500).json({
+      error: "Failed to update WordPress site",
+      details: error.message
+    });
+  }
+});
+
+
+// 🔌 Test WordPress connection
+app.post("/api/wordpress-sites/:id/test", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const [rows] = await db.query(
+      `
+      SELECT site_url, site_path, username, app_password
+      FROM wordpress_sites
+      WHERE id = ?
+      LIMIT 1
+      `,
+      [id]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ success: false, error: "Site not found" });
+    }
+
+    const wp = rows[0];
+
+    const baseUrl =
+      wp.site_path
+        ? `${wp.site_url.replace(/\/$/, "")}${wp.site_path}`
+        : wp.site_url.replace(/\/$/, "");
+
+    // 🔍 Test via WP REST API
+    const response = await axios.get(
+      `${baseUrl}/wp-json/wp/v2/users/me`,
+      {
+        auth: {
+          username: wp.username,
+          password: wp.app_password
+        },
+        timeout: 10000
+      }
+    );
+
+    if (response.status === 200) {
+      return res.json({
+        success: true,
+        user: response.data.name
+      });
+    }
+
+    return res.json({ success: false });
+
+  } catch (error) {
+    console.error("❌ WP test connection failed:", error.message);
+
+    return res.status(400).json({
+      success: false,
+      error: error.response?.data?.message || error.message
+    });
+  }
+});
+
 
 
 
