@@ -74,7 +74,7 @@ async function processWpPost(post) {
 
     // 🔹 Load ALL WordPress sites for client
     const [sites] = await db.query(
-      "SELECT * FROM wordpress_accounts WHERE client_id = ?",
+      "SELECT * FROM wordpress_sites WHERE client_id = ?",
       [post.client_id]
     );
 
