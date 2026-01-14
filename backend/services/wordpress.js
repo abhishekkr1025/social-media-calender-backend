@@ -180,15 +180,14 @@ async function publishWordPress({
   status = "publish",
   scheduled_at = null
 }) {
-  const payload = {
-    title,
-    content,
-    excerpt,
-    status,
+const payload = {
+  title,
+  content: `<p>${content}</p>`,
+  excerpt: excerpt ? `<p>${excerpt}</p>` : "",
+  status,
+  featured_media: DEFAULT_FEATURED_MEDIA_ID
+};
 
-    // ✅ SAME IMAGE FOR EVERY POST
-    featured_media: DEFAULT_FEATURED_MEDIA_ID
-  };
 
   if (status === "future" && scheduled_at) {
     const iso = normalizeWpDate(scheduled_at);
