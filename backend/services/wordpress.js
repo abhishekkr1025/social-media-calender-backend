@@ -178,15 +178,24 @@ async function publishWordPress({
   content,
   excerpt = "",
   status = "publish",
-  scheduled_at = null
+  scheduled_at = null,
+  featured_media_id = null   // 👈 NEW
 }) {
 const payload = {
   title,
   content: `<p>${content}</p>`,
-  excerpt: excerpt ? `<p>${excerpt}</p>` : "",
-  status,
-  featured_media: DEFAULT_FEATURED_MEDIA_ID
+  status
 };
+
+if (excerpt && excerpt.trim()) {
+  payload.excerpt = `<p>${excerpt}</p>`;
+}
+
+// ✅ Only add featured_media if it exists
+if (featured_media_id) {
+  payload.featured_media = featured_media_id;
+}
+
 
 
   if (status === "future" && scheduled_at) {

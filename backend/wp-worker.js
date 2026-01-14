@@ -68,11 +68,91 @@ async function claimAndProcessWpBatch() {
   }
 }
 
+// async function processWpPost(post) {
+//   try {
+//     log(nowStr(), WORKER_ID, "Publishing WP post", post.id);
+
+//     // 🔹 Load ALL WordPress sites for client
+//     const [sites] = await db.query(
+//       "SELECT * FROM wordpress_sites WHERE client_id = ?",
+//       [post.client_id]
+//     );
+
+//     if (!sites.length) {
+//       throw new Error("No WordPress sites connected for client");
+//     }
+
+//     for (const wp of sites) {
+//       const siteUrl = `${wp.site_url}${wp.site_path}`;
+
+//       let title = post.title;
+//       let content = post.content;
+//       let excerpt = post.excerpt;
+
+//       // 🌐 Translate per site language
+//       if (wp.language !== "English") {
+//         title = await translateText({ text: title, language: wp.language });
+//         content = await translateText({ text: content, language: wp.language });
+//         excerpt = excerpt
+//           ? await translateText({ text: excerpt, language: wp.language })
+//           : "";
+//       }
+
+//       const result = await publishWordPress({
+//         site_url: siteUrl,
+//         username: wp.username,
+//         app_password: wp.app_password,
+//         title,
+//         content,
+//         excerpt,
+//         status: "future",
+//         scheduled_at: post.scheduled_at,
+//         featured_media_id: wp.default_media_id
+//       });
+
+//       if (!result.success) {
+//         throw new Error(
+//           `Failed on ${wp.language}: ${JSON.stringify(result.error)}`
+//         );
+//       }
+
+//       log(
+//         "✅ Published",
+//         wp.language,
+//         "→",
+//         result.url
+//       );
+//     }
+
+//     // ✅ Mark main post as published only AFTER all sites succeed
+//     await db.query(
+//       `UPDATE wp_posts
+//        SET status='published',
+//            updated_at=NOW()
+//        WHERE id=?`,
+//       [post.id]
+//     );
+
+//   } catch (err) {
+//     await db.query(
+//       `
+//       UPDATE wp_posts
+//       SET status='failed',
+//           error_message=?,
+//           updated_at=NOW()
+//       WHERE id=?
+//       `,
+//       [err.message?.substring(0, 2000), post.id]
+//     );
+
+//     log("❌ WP multisite publish failed:", post.id, err.message);
+//   }
+// }
+
 async function processWpPost(post) {
   try {
     log(nowStr(), WORKER_ID, "Publishing WP post", post.id);
 
-    // 🔹 Load ALL WordPress sites for client
     const [sites] = await db.query(
       "SELECT * FROM wordpress_sites WHERE client_id = ?",
       [post.client_id]
@@ -83,20 +163,36 @@ async function processWpPost(post) {
     }
 
     for (const wp of sites) {
-      const siteUrl = `${wp.site_url}${wp.site_path}`;
+      const siteUrl =
+        wp.site_path
+          ? `${wp.site_url.replace(/\/$/, "")}${wp.site_path}`
+          : wp.site_url.replace(/\/$/, "");
 
       let title = post.title;
       let content = post.content;
-      let excerpt = post.excerpt;
+      let excerpt = post.excerpt || "";
 
       // 🌐 Translate per site language
       if (wp.language !== "English") {
-        title = await translateText({ text: title, language: wp.language });
-        content = await translateText({ text: content, language: wp.language });
-        excerpt = excerpt
-          ? await translateText({ text: excerpt, language: wp.language })
-          : "";
+        if (title) {
+          title = await translateText({ text: title, language: wp.language });
+        }
+        if (content) {
+          content = await translateText({ text: content, language: wp.language });
+        }
+        if (excerpt) {
+          excerpt = await translateText({ text: excerpt, language: wp.language });
+        }
       }
+
+      log(
+        "📤 Publishing to",
+        wp.language,
+        "→",
+        siteUrl,
+        "media:",
+        wp.default_media_id || "none"
+      );
 
       const result = await publishWordPress({
         site_url: siteUrl,
@@ -106,7 +202,8 @@ async function processWpPost(post) {
         content,
         excerpt,
         status: "future",
-        scheduled_at: post.scheduled_at
+        scheduled_at: post.scheduled_at,
+        featured_media_id: wp.default_media_id
       });
 
       if (!result.success) {
@@ -115,15 +212,9 @@ async function processWpPost(post) {
         );
       }
 
-      log(
-        "✅ Published",
-        wp.language,
-        "→",
-        result.url
-      );
+      log("✅ Published", wp.language, "→", result.url);
     }
 
-    // ✅ Mark main post as published only AFTER all sites succeed
     await db.query(
       `UPDATE wp_posts
        SET status='published',
@@ -147,6 +238,7 @@ async function processWpPost(post) {
     log("❌ WP multisite publish failed:", post.id, err.message);
   }
 }
+
 
 async function runWpWorker() {
   log("🚀 WordPress Worker started", WORKER_ID);
