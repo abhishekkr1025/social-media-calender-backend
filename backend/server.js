@@ -1007,6 +1007,7 @@ app.get("/api/wordpress-sites", async (req, res) => {
         ws.language,
         ws.username,
         ws.wp_user_id,
+        ws.default_media_id,
         ws.created_at
       FROM wordpress_sites ws
       JOIN clients c ON c.id = ws.client_id
