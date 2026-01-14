@@ -994,6 +994,36 @@ app.get("/api/published-posts/:clientId", async (req, res) => {
   res.json(rows);
 });
 
+// 🟢 Get all WordPress sites (with client info)
+app.get("/api/wordpress-sites", async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT
+        ws.id,
+        ws.client_id,
+        c.name AS client_name,
+        ws.site_url,
+        ws.site_path,
+        ws.language,
+        ws.username,
+        ws.wp_user_id,
+        ws.created_at
+      FROM wordpress_sites ws
+      JOIN clients c ON c.id = ws.client_id
+      ORDER BY ws.created_at DESC
+    `);
+
+    res.json(rows);
+  } catch (error) {
+    console.error("❌ Failed to fetch wordpress sites:", error);
+    res.status(500).json({
+      error: "Failed to fetch WordPress sites",
+      details: error.message
+    });
+  }
+});
+
+
 
 
 
