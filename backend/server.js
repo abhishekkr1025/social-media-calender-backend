@@ -1161,6 +1161,73 @@ app.post("/api/wordpress-sites/:id/test", async (req, res) => {
   }
 });
 
+// ➕ Add new WordPress site
+app.post("/api/add/wordpress-sites", async (req, res) => {
+  try {
+    const {
+      client_id,
+      site_url,
+      site_path,
+      language = "English",
+      username,
+      app_password,
+      default_media_id
+    } = req.body;
+
+    // 🔍 Basic validation
+    if (!client_id || !site_url || !username || !app_password) {
+      return res.status(400).json({
+        success: false,
+        error: "client_id, site_url, username, and app_password are required"
+      });
+    }
+
+    // Normalize URL
+    const cleanUrl = site_url.replace(/\/$/, "");
+
+    // Insert
+    const [result] = await db.query(
+      `
+      INSERT INTO wordpress_sites
+      (
+        client_id,
+        site_url,
+        site_path,
+        language,
+        username,
+        app_password,
+        default_media_id,
+        created_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+      `,
+      [
+        client_id,
+        cleanUrl,
+        site_path || null,
+        language,
+        username,
+        app_password,
+        default_media_id || null
+      ]
+    );
+
+    res.json({
+      success: true,
+      id: result.insertId
+    });
+
+  } catch (error) {
+    console.error("❌ Failed to add WordPress site:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to add WordPress site",
+      details: error.message
+    });
+  }
+});
+
+
 
 
 
