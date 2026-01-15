@@ -34,7 +34,7 @@ export async function translateText({ payload, language }) {
         language
       },
       {
-        timeout: 60000
+        timeout: 180000
       }
     );
 
