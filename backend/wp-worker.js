@@ -172,17 +172,16 @@ async function processWpPost(post) {
       let content = post.content;
       let excerpt = post.excerpt || "";
 
-      // 🌐 Translate per site language
+      // 🌐 Single translation call
       if (wp.language !== "English") {
-        if (title) {
-          title = await translateText({ text: title, language: wp.language });
-        }
-        if (content) {
-          content = await translateText({ text: content, language: wp.language });
-        }
-        if (excerpt) {
-          excerpt = await translateText({ text: excerpt, language: wp.language });
-        }
+        const translated = await translateText({
+          payload: { title, content, excerpt },
+          language: wp.language
+        });
+
+        title = translated.title;
+        content = translated.content;
+        excerpt = translated.excerpt;
       }
 
       log(
@@ -207,9 +206,7 @@ async function processWpPost(post) {
       });
 
       if (!result.success) {
-        throw new Error(
-          `Failed on ${wp.language}: ${JSON.stringify(result.error)}`
-        );
+        throw new Error(`Failed on ${wp.language}`);
       }
 
       log("✅ Published", wp.language, "→", result.url);
@@ -238,6 +235,7 @@ async function processWpPost(post) {
     log("❌ WP multisite publish failed:", post.id, err.message);
   }
 }
+
 
 
 async function runWpWorker() {
