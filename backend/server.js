@@ -1168,7 +1168,7 @@ app.post("/api/add/wordpress-sites", async (req, res) => {
       client_id,
       site_url,
       site_path,
-      language = "English",
+      language,
       username,
       app_password,
       default_media_id
