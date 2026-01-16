@@ -891,7 +891,7 @@ app.get("/api/clients/:clientId/wordpress/account", async (req, res) => {
         wp_user_id,
         created_at
       FROM wordpress_sites
-      WHERE client_id = ?
+      WHERE wp_user_id = ?
       ORDER BY language ASC
       `,
       [clientId]
