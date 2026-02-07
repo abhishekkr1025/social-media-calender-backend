@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const TRANSLATE_SERVICE_URL = "http://20.40.44.179:5010/translate";
+const TRANSLATE_SERVICE_URL = "http://prod.panditjee.com:5010/translate";
 
 /**
  * Batch translation helper
