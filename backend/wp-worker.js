@@ -372,6 +372,8 @@ async function processWpPost(post) {
       });
     }
 
+    log(`translations: ${translations}`)
+
     /* ------------------------------
        🚀 Publish in parallel
     --------------------------------*/
