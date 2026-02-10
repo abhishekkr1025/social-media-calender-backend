@@ -71,7 +71,7 @@
 
 import axios from "axios";
 
-const TRANSLATE_SERVICE_URL = process.env.TRANSLATE_SERVICE_URL;
+const TRANSLATE_SERVICE_URL = "http://prod.panditjee.com:5010/translate";
 const TRANSLATE_TIMEOUT_MS = 300000; // 5 minutes
 
 /**
