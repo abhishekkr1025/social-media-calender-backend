@@ -1,69 +1,176 @@
+// import axios from "axios";
+
+// const TRANSLATE_SERVICE_URL = "http://prod.panditjee.com:5010/translate";
+
+// /**
+//  * Batch translation helper
+//  *
+//  * @param {Object} payload  { title, content, excerpt }
+//  * @param {String} language Target language (e.g. Hindi, Tamil)
+//  * @returns {Object}        Translated payload
+//  */
+// export async function translateText({ payload, language }) {
+//   // ✅ Guard clauses
+//   if (!payload || !language || language === "English") {
+//     return payload;
+//   }
+
+//   // Remove empty fields to avoid unnecessary translation
+//   const cleanPayload = Object.fromEntries(
+//     Object.entries(payload).filter(
+//       ([_, value]) => typeof value === "string" && value.trim() !== ""
+//     )
+//   );
+
+//   if (Object.keys(cleanPayload).length === 0) {
+//     return payload;
+//   }
+
+//   try {
+//     const res = await axios.post(
+//       TRANSLATE_SERVICE_URL,
+//       {
+//         text: cleanPayload, // 👈 send structured object
+//         language
+//       },
+//       {
+//         timeout: 180000
+//       }
+//     );
+
+//     /**
+//      * Expected response:
+//      * {
+//      *   translated_text: {
+//      *     title: "...",
+//      *     content: "...",
+//      *     excerpt: "..."
+//      *   }
+//      * }
+//      */
+
+//     const translated = res.data?.translated_text;
+
+//     // 🔐 Safety: merge original + translated
+//     return {
+//       ...payload,
+//       ...(typeof translated === "object" ? translated : {})
+//     };
+
+//   } catch (err) {
+//     console.error(
+//       "❌ Translation service error:",
+//       err.response?.data || err.message
+//     );
+
+//     // 🛟 Graceful fallback (return original text)
+//     return payload;
+//   }
+// }
+
+
 import axios from "axios";
 
-const TRANSLATE_SERVICE_URL = "http://prod.panditjee.com:5010/translate";
+const TRANSLATE_SERVICE_URL = process.env.TRANSLATE_SERVICE_URL;
+const TRANSLATE_TIMEOUT_MS = 300000; // 5 minutes
 
 /**
- * Batch translation helper
+ * Batch translate article into multiple languages
  *
- * @param {Object} payload  { title, content, excerpt }
- * @param {String} language Target language (e.g. Hindi, Tamil)
- * @returns {Object}        Translated payload
+ * @param {Object} payload   { title, content, excerpt }
+ * @param {Array}  languages ["Hindi", "Tamil", "French"]
+ *
+ * @returns {Object}
+ * {
+ *   Hindi:  { title, content, excerpt },
+ *   Tamil:  { title, content, excerpt }
+ * }
  */
-export async function translateText({ payload, language }) {
-  // ✅ Guard clauses
-  if (!payload || !language || language === "English") {
-    return payload;
+export async function translateBatch({ payload, languages }) {
+
+  /* ---------------------------
+     🛡 Guard Clauses
+  ----------------------------*/
+
+  if (!payload || typeof payload !== "object") {
+    return {};
   }
 
-  // Remove empty fields to avoid unnecessary translation
+  if (!Array.isArray(languages) || languages.length === 0) {
+    return {};
+  }
+
+  // Remove empty fields to reduce token usage
   const cleanPayload = Object.fromEntries(
     Object.entries(payload).filter(
       ([_, value]) => typeof value === "string" && value.trim() !== ""
     )
   );
 
-  if (Object.keys(cleanPayload).length === 0) {
-    return payload;
+  if (!Object.keys(cleanPayload).length) {
+    return {};
   }
 
   try {
-    const res = await axios.post(
+
+    console.log("🌍 Translating into:", languages.join(", "));
+
+    const response = await axios.post(
       TRANSLATE_SERVICE_URL,
       {
-        text: cleanPayload, // 👈 send structured object
-        language
+        text: cleanPayload,   // structured object
+        languages             // array of languages
       },
       {
-        timeout: 180000
+        timeout: TRANSLATE_TIMEOUT_MS,
+        headers: {
+          "Content-Type": "application/json"
+        }
       }
     );
 
     /**
-     * Expected response:
+     * Expected Response:
      * {
-     *   translated_text: {
-     *     title: "...",
-     *     content: "...",
-     *     excerpt: "..."
+     *   translations: {
+     *     Hindi:  { title: "...", content: "...", excerpt: "..." },
+     *     Tamil:  { ... }
      *   }
      * }
      */
 
-    const translated = res.data?.translated_text;
+    const translations = response.data?.translations;
 
-    // 🔐 Safety: merge original + translated
-    return {
-      ...payload,
-      ...(typeof translated === "object" ? translated : {})
-    };
+    if (!translations || typeof translations !== "object") {
+      console.warn("⚠ Invalid translation response format");
+      return {};
+    }
+
+    // Safety: ensure all requested languages exist
+    const safeTranslations = {};
+
+    for (const lang of languages) {
+      if (translations[lang]) {
+        safeTranslations[lang] = {
+          ...cleanPayload,
+          ...translations[lang]
+        };
+      } else {
+        console.warn(`⚠ Missing translation for ${lang}`);
+      }
+    }
+
+    return safeTranslations;
 
   } catch (err) {
+
     console.error(
-      "❌ Translation service error:",
+      "❌ Batch translation failed:",
       err.response?.data || err.message
     );
 
-    // 🛟 Graceful fallback (return original text)
-    return payload;
+    // Return empty map so worker can fallback to English
+    return {};
   }
 }
+
