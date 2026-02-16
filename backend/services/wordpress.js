@@ -204,6 +204,9 @@ if (featured_media_id) {
     payload.date_gmt = new Date(iso).toISOString();
   }
 
+  log("FINAL PAYLOAD:", JSON.stringify(payload, null, 2));
+
+
   const response = await axios.post(
     `${site_url.replace(/\/$/, "")}/wp-json/wp/v2/posts`,
     payload,
