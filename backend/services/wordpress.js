@@ -183,12 +183,12 @@ async function publishWordPress({
 }) {
 const payload = {
   title,
-  content: `<p>${content}</p>`,
+  content: content,
   status
 };
 
 if (excerpt && excerpt.trim()) {
-  payload.excerpt = `<p>${excerpt}</p>`;
+  payload.excerpt = excerpt;
 }
 
 // ✅ Only add featured_media if it exists
@@ -204,7 +204,7 @@ if (featured_media_id) {
     payload.date_gmt = new Date(iso).toISOString();
   }
 
- console.log("FINAL PAYLOAD:", JSON.stringify(payload, null, 2));
+//  console.log("FINAL PAYLOAD:", JSON.stringify(payload, null, 2));
 
 
   const response = await axios.post(
