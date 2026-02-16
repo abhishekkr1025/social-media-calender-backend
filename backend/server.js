@@ -28,7 +28,7 @@ import twitterRoutes from './routes/connectToTwiter.js';
 import youtubeRoutes from './routes/connectToYoutube.js';
 import wordpressRoutes from './routes/connectToWordpress.js';
 import telegramRoutes from './routes/connectToTelegram.js';
-import { translateBatch } from './services/translate.js';
+import { translateText } from './services/translate.js';
 import axios from 'axios';
 
 
