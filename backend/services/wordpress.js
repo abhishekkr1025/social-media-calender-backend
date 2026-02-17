@@ -179,7 +179,8 @@ async function publishWordPress({
   excerpt = "",
   status = "publish",
   scheduled_at = null,
-  featured_media_id = null   // 👈 NEW
+  featured_media_id = null,
+  categories = []     // 👈 NEW
 }) {
 const payload = {
   title,
