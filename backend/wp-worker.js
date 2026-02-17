@@ -68,11 +68,12 @@ async function claimAndProcessWpBatch() {
   }
 }
 
+
+
 // async function processWpPost(post) {
 //   try {
 //     log(nowStr(), WORKER_ID, "Publishing WP post", post.id);
 
-//     // 🔹 Load ALL WordPress sites for client
 //     const [sites] = await db.query(
 //       "SELECT * FROM wordpress_sites WHERE client_id = ?",
 //       [post.client_id]
@@ -83,20 +84,54 @@ async function claimAndProcessWpBatch() {
 //     }
 
 //     for (const wp of sites) {
-//       const siteUrl = `${wp.site_url}${wp.site_path}`;
+//       const siteUrl =
+//         wp.site_path
+//           ? `${wp.site_url.replace(/\/$/, "")}${wp.site_path}`
+//           : wp.site_url.replace(/\/$/, "");
 
 //       let title = post.title;
 //       let content = post.content;
-//       let excerpt = post.excerpt;
+//       let excerpt = post.excerpt || "";
 
-//       // 🌐 Translate per site language
+//       // 🌐 Single translation call
 //       if (wp.language !== "English") {
-//         title = await translateText({ text: title, language: wp.language });
-//         content = await translateText({ text: content, language: wp.language });
-//         excerpt = excerpt
-//           ? await translateText({ text: excerpt, language: wp.language })
-//           : "";
+//         const translated = await translateText({
+//           payload: { title, content, excerpt },
+//           language: wp.language
+//         });
+
+//         title = translated.title;
+//         content = translated.content;
+//         excerpt = translated.excerpt;
 //       }
+
+//       let categories = [];
+
+//       if (post.master_category_id) {
+//         const [mapping] = await db.query(
+//           `
+//     SELECT wp_category_id
+//     FROM site_category_mapping
+//     WHERE master_category_id = ?
+//       AND site_id = ?
+//     `,
+//           [post.master_category_id, wp.id]
+//         );
+
+//         if (mapping.length) {
+//           categories = [mapping[0].wp_category_id];
+//         }
+//       }
+
+
+//       log(
+//         "📤 Publishing to",
+//         wp.language,
+//         "→",
+//         siteUrl,
+//         "media:",
+//         wp.default_media_id || "none"
+//       );
 
 //       const result = await publishWordPress({
 //         site_url: siteUrl,
@@ -107,24 +142,17 @@ async function claimAndProcessWpBatch() {
 //         excerpt,
 //         status: "future",
 //         scheduled_at: post.scheduled_at,
-//         featured_media_id: wp.default_media_id
+//         featured_media_id: wp.default_media_id,
+//         categories   // 👈 ADD THIS
 //       });
 
 //       if (!result.success) {
-//         throw new Error(
-//           `Failed on ${wp.language}: ${JSON.stringify(result.error)}`
-//         );
+//         throw new Error(`Failed on ${wp.language}`);
 //       }
 
-//       log(
-//         "✅ Published",
-//         wp.language,
-//         "→",
-//         result.url
-//       );
+//       log("✅ Published", wp.language, "→", result.url);
 //     }
 
-//     // ✅ Mark main post as published only AFTER all sites succeed
 //     await db.query(
 //       `UPDATE wp_posts
 //        SET status='published',
@@ -149,10 +177,12 @@ async function claimAndProcessWpBatch() {
 //   }
 // }
 
+
 async function processWpPost(post) {
   try {
-    log(nowStr(), WORKER_ID, "Publishing WP post", post.id);
+    log(nowStr(), WORKER_ID, "🚀 Publishing WP post", post.id);
 
+    // 🔹 Fetch all WordPress sites for client
     const [sites] = await db.query(
       "SELECT * FROM wordpress_sites WHERE client_id = ?",
       [post.client_id]
@@ -162,52 +192,80 @@ async function processWpPost(post) {
       throw new Error("No WordPress sites connected for client");
     }
 
+    // 🔁 Loop through each site
     for (const wp of sites) {
-      const siteUrl =
-        wp.site_path
-          ? `${wp.site_url.replace(/\/$/, "")}${wp.site_path}`
-          : wp.site_url.replace(/\/$/, "");
+
+      const siteUrl = wp.site_path
+        ? `${wp.site_url.replace(/\/$/, "")}${wp.site_path}`
+        : wp.site_url.replace(/\/$/, "");
 
       let title = post.title;
       let content = post.content;
       let excerpt = post.excerpt || "";
 
-      // 🌐 Single translation call
-      if (wp.language !== "English") {
-        const translated = await translateText({
-          payload: { title, content, excerpt },
-          language: wp.language
-        });
+      // =====================================================
+      // 🌐 TRANSLATION
+      // =====================================================
+      if (wp.language && wp.language !== "English") {
+        log("🌍 Translating for", wp.language);
 
-        title = translated.title;
-        content = translated.content;
-        excerpt = translated.excerpt;
-      }
+        try {
+          const translated = await translateText({
+            payload: { title, content, excerpt },
+            language: wp.language
+          });
 
-      let categories = [];
+          if (translated) {
+            title = translated.title || title;
+            content = translated.content || content;
+            excerpt = translated.excerpt || excerpt;
+          }
 
-      if (post.master_category_id) {
-        const [mapping] = await db.query(
-          `
-    SELECT wp_category_id
-    FROM site_category_mapping
-    WHERE master_category_id = ?
-      AND site_id = ?
-    `,
-          [post.master_category_id, wp.id]
-        );
-
-        if (mapping.length) {
-          categories = [mapping[0].wp_category_id];
+        } catch (translationError) {
+          log("⚠ Translation failed for", wp.language, translationError.message);
+          throw new Error(`Translation failed for ${wp.language}`);
         }
       }
 
+      // =====================================================
+      // 📂 CATEGORY RESOLUTION (Master → Site Mapping)
+      // =====================================================
+      let categories = [];
 
+      if (post.master_category_id) {
+
+        const [mappingRows] = await db.query(
+          `
+          SELECT wp_category_id
+          FROM site_category_mapping
+          WHERE master_category_id = ?
+            AND site_id = ?
+          `,
+          [post.master_category_id, wp.id]
+        );
+
+        if (mappingRows.length) {
+          categories = mappingRows.map(r => r.wp_category_id);
+        } else {
+          log(
+            "⚠ No category mapping found for site:",
+            wp.id,
+            "master_category:",
+            post.master_category_id
+          );
+        }
+      }
+
+      // =====================================================
+      // 📤 PUBLISH
+      // =====================================================
       log(
         "📤 Publishing to",
         wp.language,
         "→",
         siteUrl,
+        "categories:",
+        categories.length ? categories : "none",
         "media:",
         wp.default_media_id || "none"
       );
@@ -222,25 +280,35 @@ async function processWpPost(post) {
         status: "future",
         scheduled_at: post.scheduled_at,
         featured_media_id: wp.default_media_id,
-        categories   // 👈 ADD THIS
+        categories
       });
 
       if (!result.success) {
-        throw new Error(`Failed on ${wp.language}`);
+        throw new Error(
+          `Publish failed on ${wp.language}: ${JSON.stringify(result.error)}`
+        );
       }
 
       log("✅ Published", wp.language, "→", result.url);
     }
 
+    // =====================================================
+    // ✅ MARK POST AS PUBLISHED
+    // =====================================================
     await db.query(
-      `UPDATE wp_posts
-       SET status='published',
-           updated_at=NOW()
-       WHERE id=?`,
+      `
+      UPDATE wp_posts
+      SET status='published',
+          updated_at=NOW()
+      WHERE id=?
+      `,
       [post.id]
     );
 
+    log("🎉 WP Post published successfully:", post.id);
+
   } catch (err) {
+
     await db.query(
       `
       UPDATE wp_posts
@@ -255,6 +323,9 @@ async function processWpPost(post) {
     log("❌ WP multisite publish failed:", post.id, err.message);
   }
 }
+
+
+
 
 
 

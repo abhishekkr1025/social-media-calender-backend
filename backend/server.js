@@ -188,7 +188,8 @@ app.post("/api/wp-posts", upload.single("file"), async (req, res) => {
       content,
       excerpt,
       scheduled_at,
-      language = "English"
+      language = "English",
+      master_category_id
     } = req.body;
 
     if (!clientId || !title || !content || !scheduled_at) {
@@ -198,7 +199,7 @@ app.post("/api/wp-posts", upload.single("file"), async (req, res) => {
     await db.query(
       `
       INSERT INTO wp_posts
-      (client_id, title, content, excerpt, scheduled_at, status, language)
+      (client_id, title, content, excerpt, scheduled_at, status, language, master_category_id)
       VALUES (?, ?, ?, ?, ?, 'scheduled', ?)
       `,
       [
@@ -207,7 +208,8 @@ app.post("/api/wp-posts", upload.single("file"), async (req, res) => {
         content,
         excerpt || null,
         scheduled_at,
-        language
+        language,
+        master_category_id
       ]
     );
 
