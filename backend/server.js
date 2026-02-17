@@ -880,31 +880,71 @@ app.get("/api/clients/:clientId/youtube/account", async (req, res) => {
   }
 });
 
+// async function syncCategories(site) {
+//   let page = 1;
+//   let totalPages = 1;
+
+//   let apiUrl = '';
+//   if(site.language==="English"){
+//      apiUrl =  `${site.site_url}/wp-json/wp/v2/categories`;
+//   } 
+//   else{
+//     apiUrl =  `${site.site_url}/${site.language}/wp-json/wp/v2/categories`;
+//   }
+   
+
+
+//   while (page <= totalPages) {
+//     const res = await axios.get(
+//       apiUrl,
+//       {
+//         params: { per_page: 100, page },
+//         auth: {
+//           username: site.username,
+//           password: site.app_password
+//         }
+//       }
+//     );
+
+//     totalPages = parseInt(res.headers["x-wp-totalpages"] || 1);
+
+//     for (const cat of res.data) {
+//       await db.query(
+//         `
+//         INSERT INTO wordpress_site_categories
+//         (site_id, wp_category_id, name, slug, parent_wp_id)
+//         VALUES (?, ?, ?, ?, ?)
+//         ON DUPLICATE KEY UPDATE
+//         name = VALUES(name),
+//         slug = VALUES(slug),
+//         parent_wp_id = VALUES(parent_wp_id)
+//         `,
+//         [site.id, cat.id, cat.name, cat.slug, cat.parent]
+//       );
+//     }
+
+//     page++;
+//   }
+// }
+
 async function syncCategories(site) {
   let page = 1;
   let totalPages = 1;
 
-  let apiUrl = '';
-  if(site.language==="English"){
-     apiUrl =  `${site.site_url}/wp-json/wp/v2/categories`;
-  } 
-  else{
-    apiUrl =  `${site.site_url}/${site.language}/wp-json/wp/v2/categories`;
-  }
-   
+  const baseUrl = site.site_path
+    ? `${site.site_url.replace(/\/$/, "")}${site.site_path}`
+    : site.site_url.replace(/\/$/, "");
 
+  const apiUrl = `${baseUrl}/wp-json/wp/v2/categories`;
 
   while (page <= totalPages) {
-    const res = await axios.get(
-      apiUrl,
-      {
-        params: { per_page: 100, page },
-        auth: {
-          username: site.username,
-          password: site.app_password
-        }
+    const res = await axios.get(apiUrl, {
+      params: { per_page: 100, page },
+      auth: {
+        username: site.username,
+        password: site.app_password
       }
-    );
+    });
 
     totalPages = parseInt(res.headers["x-wp-totalpages"] || 1);
 
