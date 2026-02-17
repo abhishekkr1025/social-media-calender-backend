@@ -196,6 +196,10 @@ if (featured_media_id) {
   payload.featured_media = featured_media_id;
 }
 
+if (categories && categories.length) {
+  payload.categories = categories;
+}
+
 
 
   if (status === "future" && scheduled_at) {

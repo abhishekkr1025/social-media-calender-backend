@@ -184,6 +184,25 @@ async function processWpPost(post) {
         excerpt = translated.excerpt;
       }
 
+      let categories = [];
+
+      if (post.master_category_id) {
+        const [mapping] = await db.query(
+          `
+    SELECT wp_category_id
+    FROM site_category_mapping
+    WHERE master_category_id = ?
+      AND site_id = ?
+    `,
+          [post.master_category_id, wp.id]
+        );
+
+        if (mapping.length) {
+          categories = [mapping[0].wp_category_id];
+        }
+      }
+
+
       log(
         "📤 Publishing to",
         wp.language,
@@ -202,7 +221,8 @@ async function processWpPost(post) {
         excerpt,
         status: "future",
         scheduled_at: post.scheduled_at,
-        featured_media_id: wp.default_media_id
+        featured_media_id: wp.default_media_id,
+        categories   // 👈 ADD THIS
       });
 
       if (!result.success) {
