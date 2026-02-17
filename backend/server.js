@@ -200,7 +200,7 @@ app.post("/api/wp-posts", upload.single("file"), async (req, res) => {
       `
       INSERT INTO wp_posts
       (client_id, title, content, excerpt, scheduled_at, status, language, master_category_id)
-      VALUES (?, ?, ?, ?, ?, 'scheduled', ?)
+      VALUES (?, ?, ?, ?, ?, 'scheduled', ?,?)
       `,
       [
         clientId,
