@@ -943,6 +943,95 @@ app.post(
 );
 
 
+app.get("/master-categories", async (req, res) => {
+  const [rows] = await db.query(
+    "SELECT * FROM master_categories ORDER BY name"
+  );
+  res.json(rows);
+});
+
+app.get("/master-categories", async (req, res) => {
+  const [rows] = await db.query(
+    "SELECT * FROM master_categories ORDER BY name"
+  );
+  res.json(rows);
+});
+
+router.get("/wordpress-sites/:id/categories", async (req, res) => {
+  const [rows] = await db.query(
+    `SELECT wp_category_id, name, slug
+     FROM wordpress_site_categories
+     WHERE site_id = ?
+     ORDER BY name`,
+    [req.params.id]
+  );
+
+  res.json(rows);
+});
+
+
+router.post("/site-category-mapping/:siteId", async (req, res) => {
+  const siteId = req.params.siteId;
+  const mappings = req.body;
+
+  for (const m of mappings) {
+    await db.query(`
+      INSERT INTO site_category_mapping
+      (master_category_id, site_id, wp_category_id)
+      VALUES (?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+      wp_category_id = VALUES(wp_category_id)
+    `, [m.master_category_id, siteId, m.wp_category_id]);
+  }
+
+  res.json({ success: true });
+});
+
+
+router.post("/site-category-mapping/:siteId/auto-match", async (req, res) => {
+  const siteId = req.params.siteId;
+
+  const [masters] = await db.query(
+    "SELECT id, name FROM master_categories"
+  );
+
+  const [siteCats] = await db.query(
+    `SELECT wp_category_id, slug
+     FROM wordpress_site_categories
+     WHERE site_id = ?`,
+    [siteId]
+  );
+
+  const mapping = {};
+
+  for (const master of masters) {
+    const normalized = master.name
+      .toLowerCase()
+      .replace(/\s+/g, "-");
+
+    const match = siteCats.find(
+      c => c.slug.toLowerCase() === normalized
+    );
+
+    if (match) {
+      mapping[master.id] = match.wp_category_id;
+
+      await db.query(`
+        INSERT INTO site_category_mapping
+        (master_category_id, site_id, wp_category_id)
+        VALUES (?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+        wp_category_id = VALUES(wp_category_id)
+      `, [master.id, siteId, match.wp_category_id]);
+    }
+  }
+
+  res.json({ success: true, mapping });
+});
+
+
+
+
 app.get("/api/clients/:clientId/wordpress/account", async (req, res) => {
   const { clientId } = req.params;
 
