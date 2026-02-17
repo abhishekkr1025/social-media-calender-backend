@@ -917,7 +917,7 @@ async function syncCategories(site) {
 
 
 app.post(
-  "/wordpress-sites/:id/sync-categories",
+  "/api/wordpress-sites/:id/sync-categories",
   async (req, res) => {
     try {
       const siteId = req.params.id;
