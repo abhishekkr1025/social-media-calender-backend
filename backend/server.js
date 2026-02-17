@@ -943,21 +943,21 @@ app.post(
 );
 
 
-app.get("/master-categories", async (req, res) => {
+app.get("/api/master-categories", async (req, res) => {
   const [rows] = await db.query(
     "SELECT * FROM master_categories ORDER BY name"
   );
   res.json(rows);
 });
 
-app.get("/master-categories", async (req, res) => {
+app.get("/api/master-categories", async (req, res) => {
   const [rows] = await db.query(
     "SELECT * FROM master_categories ORDER BY name"
   );
   res.json(rows);
 });
 
-app.get("/wordpress-sites/:id/categories", async (req, res) => {
+app.get("/api/wordpress-sites/:id/categories", async (req, res) => {
   const [rows] = await db.query(
     `SELECT wp_category_id, name, slug
      FROM wordpress_site_categories
@@ -970,7 +970,7 @@ app.get("/wordpress-sites/:id/categories", async (req, res) => {
 });
 
 
-app.post("/site-category-mapping/:siteId", async (req, res) => {
+app.post("/api/site-category-mapping/:siteId", async (req, res) => {
   const siteId = req.params.siteId;
   const mappings = req.body;
 
@@ -988,7 +988,7 @@ app.post("/site-category-mapping/:siteId", async (req, res) => {
 });
 
 
-app.post("/site-category-mapping/:siteId/auto-match", async (req, res) => {
+app.post("/api/site-category-mapping/:siteId/auto-match", async (req, res) => {
   const siteId = req.params.siteId;
 
   const [masters] = await db.query(
