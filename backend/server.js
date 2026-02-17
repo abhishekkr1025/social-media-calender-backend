@@ -989,6 +989,33 @@ app.get("/api/site-category-mapping/:siteId", async (req, res) => {
   }
 });
 
+// GET single WordPress site
+app.get("/api/wordpress-sites/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [rows] = await db.query(
+      `
+      SELECT ws.*, c.name AS client_name
+      FROM wordpress_sites ws
+      LEFT JOIN clients c ON ws.client_id = c.id
+      WHERE ws.id = ?
+      `,
+      [id]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ error: "WordPress site not found" });
+    }
+
+    res.json(rows[0]);
+
+  } catch (err) {
+    console.error("Fetch WordPress site error:", err);
+    res.status(500).json({ error: "Failed to fetch WordPress site" });
+  }
+});
+
 
 app.get("/api/wordpress-sites/:id/categories", async (req, res) => {
   const [rows] = await db.query(
