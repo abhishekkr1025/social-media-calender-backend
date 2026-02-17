@@ -884,9 +884,19 @@ async function syncCategories(site) {
   let page = 1;
   let totalPages = 1;
 
+  let apiUrl = '';
+  if(site.language==="English"){
+     apiUrl =  `${site.site_url}/wp-json/wp/v2/categories`;
+  } 
+  else{
+    apiUrl =  `${site.site_url}/${site.language}/wp-json/wp/v2/categories`;
+  }
+   
+
+
   while (page <= totalPages) {
     const res = await axios.get(
-      `${site.site_url}/wp-json/wp/v2/categories`,
+      apiUrl,
       {
         params: { per_page: 100, page },
         auth: {
