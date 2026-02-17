@@ -878,6 +878,33 @@ app.get("/api/clients/:clientId/youtube/account", async (req, res) => {
   }
 });
 
+app.post(
+  "/wordpress-sites/:id/sync-categories",
+  async (req, res) => {
+    try {
+      const siteId = req.params.id;
+
+      const [rows] = await db.query(
+        "SELECT * FROM wordpress_sites WHERE id = ?",
+        [siteId]
+      );
+
+      if (!rows.length) {
+        return res.status(404).json({ success: false });
+      }
+
+      await syncCategories(rows[0]); // your existing function
+
+      res.json({ success: true });
+
+    } catch (err) {
+      console.error("Sync categories error:", err);
+      res.status(500).json({ success: false });
+    }
+  }
+);
+
+
 app.get("/api/clients/:clientId/wordpress/account", async (req, res) => {
   const { clientId } = req.params;
 
