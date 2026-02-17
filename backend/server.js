@@ -957,6 +957,39 @@ app.get("/api/master-categories", async (req, res) => {
   res.json(rows);
 });
 
+// GET all mappings for a site
+app.get("/api/site-category-mapping/:siteId", async (req, res) => {
+  try {
+    const { siteId } = req.params;
+
+    const [rows] = await db.query(
+      `
+      SELECT 
+        scm.master_category_id,
+        scm.wp_category_id,
+        mc.name AS master_category_name,
+        wsc.name AS site_category_name,
+        wsc.slug
+      FROM site_category_mapping scm
+      JOIN master_categories mc 
+        ON scm.master_category_id = mc.id
+      JOIN wordpress_site_categories wsc 
+        ON scm.wp_category_id = wsc.wp_category_id
+        AND scm.site_id = wsc.site_id
+      WHERE scm.site_id = ?
+      `,
+      [siteId]
+    );
+
+    res.json(rows);
+
+  } catch (err) {
+    console.error("Get mapping error:", err);
+    res.status(500).json({ error: "Failed to fetch mapping" });
+  }
+});
+
+
 app.get("/api/wordpress-sites/:id/categories", async (req, res) => {
   const [rows] = await db.query(
     `SELECT wp_category_id, name, slug
