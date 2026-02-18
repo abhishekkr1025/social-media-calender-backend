@@ -21,36 +21,16 @@ export async function publishTelegram({ chat_id, text, media_url }) {
     if (media_url) {
       const isVideo = media_url.endsWith(".mp4");
 
-       // 🔹 Download media first
-      const mediaResponse = await axios.get(media_url, {
-        responseType: "arraybuffer"
-      });
+      const payload = {
+        chat_id: safeChatId,
+        caption: safeText
+      };
 
-      const form = new FormData();
-      form.append("chat_id", chat_id);
-      form.append("caption", safeText);
-
-      form.append(
-        isVideo ? "video" : "photo",
-        mediaResponse.data,
-        {
-          filename: isVideo ? "video.mp4" : "image.jpg"
-        }
-      );
-
-      // const payload = {
-      //   chat_id: safeChatId,
-      //   caption: safeText
-      // };
-
-      // payload[isVideo ? "video" : "photo"] = media_url;
+      payload[isVideo ? "video" : "photo"] = media_url;
 
       const res = await axios.post(
         `${BASE_URL}/${isVideo ? "sendVideo" : "sendPhoto"}`,
-        form,
-        {
-          headers: form.getHeaders()
-        }
+        payload
       );
 
       return { success: true, external_post_id: res.data.result.message_id };
