@@ -28,6 +28,7 @@ import twitterRoutes from './routes/connectToTwiter.js';
 import youtubeRoutes from './routes/connectToYoutube.js';
 import wordpressRoutes from './routes/connectToWordpress.js';
 import telegramRoutes from './routes/connectToTelegram.js';
+import wordpressPostsRoutes from './services/wordpressPosts.js'
 // import { translateText } from './services/translate.js';
 import axios from 'axios';
 
@@ -41,7 +42,7 @@ app.use(express.urlencoded({ extended: true }));
 
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://social-media-calendar-frontend-ocxw.vercel.app"
+  "https://social-media-calendar.vercel.app"
 ];
 
 app.use((req, res, next) => {
@@ -1508,6 +1509,7 @@ app.use("/auth", twitterRoutes);
 app.use("/auth", youtubeRoutes);
 app.use("/auth", wordpressRoutes);
 app.use("/auth", telegramRoutes);
+app.use("/api",wordpressPostsRoutes);
 app.use("/uploads", express.static("uploads"));
 
 
