@@ -1,97 +1,154 @@
-// routes/wordpress.js
 import express from "express";
 import axios from "axios";
 import db from "../db.js";
 
 const router = express.Router();
 
-// GET posts from connected site
-router.get("/wordpress-sites/:id/posts", async (req, res) => {
+/* =========================================
+   Helper: Get WordPress Site Credentials
+========================================= */
+async function getSiteByPostId(postId) {
+  const [[post]] = await db.query(
+    "SELECT * FROM wp_posts WHERE id = ?",
+    [postId]
+  );
+
+  if (!post) throw new Error("Post not found");
+
+  const [[site]] = await db.query(
+    "SELECT * FROM wordpress_accounts WHERE id = ?",
+    [post.site_id]
+  );
+
+  if (!site) throw new Error("WordPress site not found");
+
+  return { post, site };
+}
+
+function getAuthHeader(site) {
+  return {
+    Authorization:
+      "Basic " +
+      Buffer.from(
+        `${site.username}:${site.app_password}`
+      ).toString("base64"),
+  };
+}
+
+/* =========================================
+   1️⃣ GET ALL POSTS (Local DB)
+========================================= */
+router.get("/", async (req, res) => {
   try {
-    const { id } = req.params;
+    const [posts] = await db.query(`
+      SELECT p.*, c.name as client_name
+      FROM wp_posts p
+      LEFT JOIN clients c ON p.client_id = c.id
+      ORDER BY p.created_at DESC
+    `);
 
-    const [[site]] = await db.query(
-      "SELECT * FROM wordpress_accounts WHERE id = ?",
-      [id]
-    );
-
-    if (!site) return res.status(404).json({ error: "Site not found" });
-
-    const auth = Buffer.from(
-      `${site.username}:${site.app_password}`
-    ).toString("base64");
-
-    const wpRes = await axios.get(
-      `${site.site_url}${site.site_path || ""}/wp-json/wp/v2/posts?per_page=20`,
-      {
-        headers: {
-          Authorization: `Basic ${auth}`
-        }
-      }
-    );
-
-    res.json(wpRes.data);
+    res.json(posts);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch posts" });
   }
 });
 
-router.put("/wordpress-sites/:siteId/posts/:postId", async (req, res) => {
+/* =========================================
+   2️⃣ GET SINGLE POST
+========================================= */
+router.get("/:id", async (req, res) => {
   try {
-    const { siteId, postId } = req.params;
-    const { title, content } = req.body;
-
-    const [[site]] = await db.query(
-      "SELECT * FROM wordpress_accounts WHERE id = ?",
-      [siteId]
+    const [[post]] = await db.query(
+      "SELECT * FROM wp_posts WHERE id = ?",
+      [req.params.id]
     );
 
-    const auth = Buffer.from(
-      `${site.username}:${site.app_password}`
-    ).toString("base64");
+    if (!post) return res.status(404).json({ error: "Post not found" });
 
-    const wpRes = await axios.post(
-      `${site.site_url}/wp-json/wp/v2/posts/${postId}`,
-      { title, content },
-      {
-        headers: {
-          Authorization: `Basic ${auth}`
-        }
-      }
-    );
-
-    res.json({ success: true, data: wpRes.data });
+    res.json(post);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Failed to fetch post" });
   }
 });
 
-
-router.delete("/wordpress-sites/:siteId/posts/:postId", async (req, res) => {
+/* =========================================
+   3️⃣ UPDATE POST (WP + DB)
+========================================= */
+router.put("/update/:id", async (req, res) => {
   try {
-    const { siteId, postId } = req.params;
+    const { title, content, status } = req.body;
 
-    const [[site]] = await db.query(
-      "SELECT * FROM wordpress_accounts WHERE id = ?",
-      [siteId]
+    const { post, site } = await getSiteByPostId(req.params.id);
+
+    // 🔹 Update WordPress
+    const wpResponse = await axios.post(
+      `${site.site_url}${site.site_path || ""}/wp-json/wp/v2/posts/${post.wp_post_id}`,
+      {
+        title,
+        content,
+        status,
+      },
+      {
+        headers: {
+          ...getAuthHeader(site),
+          "Content-Type": "application/json",
+        },
+      }
     );
 
-    const auth = Buffer.from(
-      `${site.username}:${site.app_password}`
-    ).toString("base64");
+    // 🔹 Update Local DB
+    await db.query(
+      `UPDATE wp_posts 
+       SET title=?, content=?, status=? 
+       WHERE id=?`,
+      [title, content, status, req.params.id]
+    );
 
+    res.json({
+      success: true,
+      id: post.id,
+      title,
+      content,
+      status,
+    });
+  } catch (err) {
+    console.error(err.response?.data || err.message);
+    res.status(500).json({
+      error: "Failed to update post",
+      details: err.response?.data || err.message,
+    });
+  }
+});
+
+/* =========================================
+   4️⃣ DELETE POST (WP + DB)
+========================================= */
+router.delete("/delete/:id", async (req, res) => {
+  try {
+    const { post, site } = await getSiteByPostId(req.params.id);
+
+    // 🔹 Delete from WordPress
     await axios.delete(
-      `${site.site_url}/wp-json/wp/v2/posts/${postId}?force=true`,
+      `${site.site_url}${site.site_path || ""}/wp-json/wp/v2/posts/${post.wp_post_id}?force=true`,
       {
-        headers: {
-          Authorization: `Basic ${auth}`
-        }
+        headers: getAuthHeader(site),
       }
+    );
+
+    // 🔹 Delete from Local DB
+    await db.query(
+      "DELETE FROM wp_posts WHERE id = ?",
+      [req.params.id]
     );
 
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err.response?.data || err.message);
+    res.status(500).json({
+      error: "Failed to delete post",
+      details: err.response?.data || err.message,
+    });
   }
 });
 

@@ -1509,7 +1509,7 @@ app.use("/auth", twitterRoutes);
 app.use("/auth", youtubeRoutes);
 app.use("/auth", wordpressRoutes);
 app.use("/auth", telegramRoutes);
-app.use("/api",wordpressPostsRoutes);
+app.use("/api/wp-posts",wordpressPostsRoutes);
 app.use("/uploads", express.static("uploads"));
 
 
