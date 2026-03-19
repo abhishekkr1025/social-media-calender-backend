@@ -328,7 +328,7 @@ app.delete("/api/deletePosts/:id", async (req, res) => {
 app.get('/api/wp-posts', async (req, res) => {
   try {
     const [rows] = await db.query(
-      'SELECT * FROM wp_posts ORDER BY scheduled_at ASC LIMIT 500'
+      'SELECT * FROM wp_posts ORDER BY scheduled_at DESC LIMIT 500'
     );
     res.json(rows);
   } catch (err) {

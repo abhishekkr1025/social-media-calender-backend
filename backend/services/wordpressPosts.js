@@ -13,12 +13,16 @@ async function getSiteByPostId(postId) {
     [postId]
   );
 
+  console.log(post);
+
   if (!post) throw new Error("Post not found");
 
   const [[site]] = await db.query(
-    "SELECT * FROM wordpress_accounts WHERE id = ?",
+    "SELECT * FROM wordpress_sites WHERE id = ?",
     [post.site_id]
   );
+
+  console.log(site);
 
   if (!site) throw new Error("WordPress site not found");
 
