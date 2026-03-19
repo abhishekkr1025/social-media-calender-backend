@@ -343,6 +343,35 @@ app.get('/api/wp-posts', async (req, res) => {
 });
 
 
+app.get('/api/wp-posts/:id/translations', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [rows] = await db.query(
+      `SELECT
+         t.id,
+         t.language,
+         t.title,
+         t.content,
+         t.excerpt,
+         t.external_post_id,
+         t.wp_url,
+         t.status,
+         t.created_at,
+         ws.site_url,
+         ws.site_path
+       FROM wp_post_translations t
+       LEFT JOIN wordpress_sites ws ON ws.id = t.site_id
+       WHERE t.wp_post_id = ?
+       ORDER BY t.language ASC`,
+      [id]
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch translations' });
+  }
+});
+
+
 
 
 

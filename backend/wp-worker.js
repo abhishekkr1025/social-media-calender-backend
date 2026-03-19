@@ -289,6 +289,27 @@ async function processWpPost(post) {
         );
       }
 
+      // ✅ Save translation to DB
+      await db.query(
+        `INSERT INTO wp_post_translations
+     (wp_post_id, site_id, language, title, content, excerpt, external_post_id, wp_url, status)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'published')
+   ON DUPLICATE KEY UPDATE
+     wp_url = VALUES(wp_url),
+     external_post_id = VALUES(external_post_id),
+     status = 'published'`,
+        [
+          post.id,
+          wp.id,
+          wp.language,
+          title,
+          content,
+          excerpt,
+          result.external_post_id,
+          result.url
+        ]
+      );
+
       log("✅ Published", wp.language, "→", result.url);
     }
 
