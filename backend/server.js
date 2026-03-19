@@ -327,9 +327,15 @@ app.delete("/api/deletePosts/:id", async (req, res) => {
 
 app.get('/api/wp-posts', async (req, res) => {
   try {
-    const [rows] = await db.query(
-      'SELECT * FROM wp_posts ORDER BY scheduled_at DESC LIMIT 500'
-    );
+    const [rows] = await db.query(`
+      SELECT 
+        wp.*,
+        mc.name AS master_category_name
+      FROM wp_posts wp
+      LEFT JOIN master_categories mc ON mc.id = wp.master_category_id
+      ORDER BY wp.scheduled_at DESC
+      LIMIT 500
+    `);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch wp_posts' });
@@ -1003,12 +1009,12 @@ app.get("/api/master-categories", async (req, res) => {
   res.json(rows);
 });
 
-app.get("/api/master-categories", async (req, res) => {
-  const [rows] = await db.query(
-    "SELECT * FROM master_categories ORDER BY name"
-  );
-  res.json(rows);
-});
+// app.get("/api/master-categories", async (req, res) => {
+//   const [rows] = await db.query(
+//     "SELECT * FROM master_categories ORDER BY name"
+//   );
+//   res.json(rows);
+// });
 
 // GET all mappings for a site
 app.get("/api/site-category-mapping/:siteId", async (req, res) => {
