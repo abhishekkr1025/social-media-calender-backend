@@ -377,6 +377,79 @@ app.get('/api/wp-posts/:id/translations', async (req, res) => {
   }
 });
 
+app.put("/api/wp-posts/translations/:translationId", async (req, res) => {
+  try {
+    const { translationId } = req.params;
+    const { title, content } = req.body;
+
+    if (!title || !content) {
+      return res.status(400).json({ error: "Title and content are required" });
+    }
+
+    // 1. Get translation + site credentials
+    const [rows] = await db.query(
+      `SELECT t.*, ws.site_url, ws.site_path, ws.username, ws.app_password
+       FROM wp_post_translations t
+       JOIN wordpress_sites ws ON ws.id = t.site_id
+       WHERE t.id = ?`,
+      [translationId]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ error: "Translation not found" });
+    }
+
+    const translation = rows[0];
+
+    // 2. Update in DB
+    await db.query(
+      `UPDATE wp_post_translations
+       SET title = ?, content = ?, updated_at = NOW()
+       WHERE id = ?`,
+      [title, content, translationId]
+    );
+
+    // 3. Re-publish to WordPress immediately
+    const siteUrl = translation.site_path
+      ? `${translation.site_url.replace(/\/$/, "")}${translation.site_path}`
+      : translation.site_url.replace(/\/$/, "");
+
+    const credentials = Buffer.from(
+      `${translation.username}:${translation.app_password}`
+    ).toString("base64");
+
+    const wpResponse = await fetch(
+      `${siteUrl}/wp-json/wp/v2/posts/${translation.external_post_id}`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Basic ${credentials}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ title, content }),
+      }
+    );
+
+    if (!wpResponse.ok) {
+      const err = await wpResponse.text();
+      console.error("WP update failed:", err);
+      return res.status(500).json({ error: "DB updated but WP republish failed", details: err });
+    }
+
+    const wpData = await wpResponse.json();
+
+    res.json({
+      success: true,
+      wp_url: wpData.link,
+      message: "Translation updated and republished to WordPress"
+    });
+
+  } catch (err) {
+    console.error("Translation update error:", err);
+    res.status(500).json({ error: "Server error", details: err.message });
+  }
+});
+
 
 
 
