@@ -214,8 +214,8 @@ app.post("/api/wp-posts", upload.single("featured_image"), async (req, res) => {
         content,
         excerpt || null,
         scheduled_at,
-        language,
-        master_category_id,
+        language || null,
+        master_category_id || null,
         featured_image_url
       ]
     );
@@ -402,12 +402,12 @@ app.put("/api/wp-posts/translations/:translationId", async (req, res) => {
     const translation = rows[0];
 
     // 2. Update in DB
-    await db.query(
-      `UPDATE wp_post_translations
-       SET title = ?, content = ?, updated_at = NOW()
-       WHERE id = ?`,
-      [title, content, translationId]
-    );
+await db.query(
+  `UPDATE wp_post_translations
+   SET title = ?, content = ?
+   WHERE id = ?`,
+  [title, content, translationId]
+);
 
     // 3. Re-publish to WordPress immediately
     const siteUrl = translation.site_path
