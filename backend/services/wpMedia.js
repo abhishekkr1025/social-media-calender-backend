@@ -22,22 +22,39 @@ function getMimeType(filename) {
 
 export async function uploadImageToWordPress(siteUrl, username, appPassword, imagePath) {
     try {
-        // imagePath is like /uploads/wp-images/filename.jpg
-        // resolve to full disk path
-        const fullPath = path.join(__dirname, '..', imagePath);
+        let imageBuffer;
+        let filename;
 
-        if (!fs.existsSync(fullPath)) {
-            log('⚠ Image file not found:', fullPath);
-            return null;
+        // ── If it's a full URL, download it first ─────────────────────────
+        if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+            log('🌐 Downloading image from URL:', imagePath);
+
+            const response = await fetch(imagePath);
+            if (!response.ok) {
+                log('⚠ Failed to download image:', response.status);
+                return null;
+            }
+
+            imageBuffer = Buffer.from(await response.arrayBuffer());
+            filename = path.basename(new URL(imagePath).pathname);
+
+        } else {
+            // ── Local file path ────────────────────────────────────────────
+            const fullPath = path.join(__dirname, '..', imagePath);
+
+            if (!fs.existsSync(fullPath)) {
+                log('⚠ Image file not found:', fullPath);
+                return null;
+            }
+
+            imageBuffer = fs.readFileSync(fullPath);
+            filename = path.basename(fullPath);
         }
 
-        const imageBuffer = fs.readFileSync(fullPath);
-        const filename = path.basename(fullPath);
         const mimeType = getMimeType(filename);
-
         const credentials = Buffer.from(`${username}:${appPassword}`).toString('base64');
 
-        const response = await fetch(`${siteUrl}/wp-json/wp/v2/media`, {
+        const uploadResponse = await fetch(`${siteUrl}/wp-json/wp/v2/media`, {
             method: 'POST',
             headers: {
                 'Authorization': `Basic ${credentials}`,
@@ -47,13 +64,13 @@ export async function uploadImageToWordPress(siteUrl, username, appPassword, ima
             body: imageBuffer
         });
 
-        if (!response.ok) {
-            const err = await response.text();
+        if (!uploadResponse.ok) {
+            const err = await uploadResponse.text();
             log('⚠ WP media upload failed:', err);
             return null;
         }
 
-        const data = await response.json();
+        const data = await uploadResponse.json();
         log('🖼 Image uploaded to WP, media_id:', data.id);
         return data.id;
 
