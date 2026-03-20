@@ -5,6 +5,7 @@ import db from "./db.js";
 import { sleep, log } from "./utils.js";
 import { publishWordPress } from "./services/wordpress.js";
 import { translateText } from "./services/translate.js";
+import { uploadImageToWordPress } from './services/wpMedia.js';
 
 
 const POLL_MS = 5000;
@@ -270,18 +271,40 @@ async function processWpPost(post) {
         wp.default_media_id || "none"
       );
 
-      const result = await publishWordPress({
-        site_url: siteUrl,
-        username: wp.username,
-        app_password: wp.app_password,
-        title,
-        content,
-        excerpt,
-        status: "future",
-        scheduled_at: post.scheduled_at,
-        featured_media_id: wp.default_media_id,
-        categories
-      });
+
+      // Upload custom image if provided, otherwise fall back to site default
+      let featured_media_id = wp.default_media_id || 0;
+
+      if (post.featured_image_url) {
+          log('🖼 Uploading custom image for post', post.id, '→', wp.language);
+         const uploadedId = await uploadImageToWordPress(
+         siteUrl,
+         wp.username,
+         wp.app_password,
+         post.featured_image_url
+       );
+       if (uploadedId) {
+        featured_media_id = uploadedId;
+        log('✅ Custom image uploaded, media_id:', uploadedId);
+       } else {
+        log('⚠ Custom image upload failed, using site default');
+       }
+}
+
+const result = await publishWordPress({
+    site_url: siteUrl,
+    username: wp.username,
+    app_password: wp.app_password,
+    title,
+    content,
+    excerpt,
+    status: "future",
+    scheduled_at: post.scheduled_at,
+    featured_media_id,   // ← now dynamic
+    categories
+});
+
+
 
       if (!result.success) {
         throw new Error(

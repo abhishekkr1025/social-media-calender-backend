@@ -181,7 +181,7 @@ app.post('/api/posts', upload.single("file"), async (req, res) => {
 });
 
 
-app.post("/api/wp-posts", upload.single("file"), async (req, res) => {
+app.post("/api/wp-posts", upload.single("featured_image"), async (req, res) => {
   try {
     const {
       clientId,
@@ -197,11 +197,16 @@ app.post("/api/wp-posts", upload.single("file"), async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
+    // Build featured image URL if file was uploaded
+    const featured_image_url = req.file
+      ? `https://prod.panditjee.com/uploads/${req.file.filename}`
+      : null;
+
     await db.query(
       `
       INSERT INTO wp_posts
-      (client_id, title, content, excerpt, scheduled_at, status, language, master_category_id)
-      VALUES (?, ?, ?, ?, ?, 'scheduled', ?,?)
+      (client_id, title, content, excerpt, scheduled_at, status, language, master_category_id, featured_image_url)
+      VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?, ?)
       `,
       [
         clientId,
@@ -210,7 +215,8 @@ app.post("/api/wp-posts", upload.single("file"), async (req, res) => {
         excerpt || null,
         scheduled_at,
         language,
-        master_category_id
+        master_category_id,
+        featured_image_url
       ]
     );
 
