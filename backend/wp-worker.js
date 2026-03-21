@@ -257,6 +257,44 @@ async function processWpPost(post) {
         }
       }
 
+
+
+      let tagIds = [];
+if (post.tags && post.tags.trim()) {
+  const tagNames = post.tags.split(",").map(t => t.trim()).filter(Boolean);
+
+  for (const tagName of tagNames) {
+    try {
+      const searchRes = await fetch(
+        `${siteUrl}/wp-json/wp/v2/tags?search=${encodeURIComponent(tagName)}&per_page=5`,
+        { headers: { Authorization: `Basic ${credentials}` } }  // ← add credentials variable before this
+      );
+      const existing = await searchRes.json();
+      const match = existing.find(
+        t => t.name.toLowerCase() === tagName.toLowerCase()
+      );
+
+      if (match) {
+        tagIds.push(match.id);
+      } else {
+        const createRes = await fetch(`${siteUrl}/wp-json/wp/v2/tags`, {
+          method: "POST",
+          headers: {
+            Authorization: `Basic ${credentials}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ name: tagName }),
+        });
+        const newTag = await createRes.json();
+        if (newTag.id) tagIds.push(newTag.id);
+      }
+    } catch (tagErr) {
+      log(`⚠ Tag error for "${tagName}":`, tagErr.message);
+    }
+  }
+}
+
+
       // =====================================================
       // 📤 PUBLISH
       // =====================================================
@@ -292,16 +330,18 @@ async function processWpPost(post) {
 }
 
 const result = await publishWordPress({
-    site_url: siteUrl,
-    username: wp.username,
-    app_password: wp.app_password,
-    title,
-    content,
-    excerpt,
-    status: "future",
-    scheduled_at: post.scheduled_at,
-    featured_media_id,   // ← now dynamic
-    categories
+  site_url: siteUrl,
+  username: wp.username,
+  app_password: wp.app_password,
+  title,
+  content,
+  excerpt,
+  status: "future",
+  scheduled_at: post.scheduled_at,
+  featured_media_id,
+  categories,
+  slug: post.slug || undefined,   // ← ADD
+  tags: tagIds.length > 0 ? tagIds : undefined,  // ← ADD
 });
 
 

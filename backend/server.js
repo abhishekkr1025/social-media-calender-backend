@@ -184,39 +184,31 @@ app.post('/api/posts', upload.single("file"), async (req, res) => {
 app.post("/api/wp-posts", upload.single("featured_image"), async (req, res) => {
   try {
     const {
-      clientId,
-      title,
-      content,
-      excerpt,
-      scheduled_at,
-      language = "English",
-      master_category_id
+      clientId, title, content, excerpt,
+      scheduled_at, language = "English",
+      master_category_id, slug, tags   // ← ADD slug and tags
     } = req.body;
 
     if (!clientId || !title || !content || !scheduled_at) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // Build featured image URL if file was uploaded
     const featured_image_url = req.file
       ? `https://prod.panditjee.com/uploads/${req.file.filename}`
       : null;
 
     await db.query(
-      `
-      INSERT INTO wp_posts
-      (client_id, title, content, excerpt, scheduled_at, status, language, master_category_id, featured_image_url)
-      VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?, ?)
-      `,
+      `INSERT INTO wp_posts
+       (client_id, title, content, excerpt, scheduled_at, status, language, master_category_id, featured_image_url, slug, tags)
+       VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?, ?, ?, ?)`,
       [
-        clientId,
-        title,
-        content,
-        excerpt || null,
-        scheduled_at,
+        clientId, title, content,
+        excerpt || null, scheduled_at,
         language || null,
         master_category_id || null,
-        featured_image_url
+        featured_image_url,
+        slug || null,       // ← ADD
+        tags || null        // ← ADD
       ]
     );
 
@@ -380,7 +372,7 @@ app.get('/api/wp-posts/:id/translations', async (req, res) => {
 app.put("/api/wp-posts/translations/:translationId", async (req, res) => {
   try {
     const { translationId } = req.params;
-    const { title, content } = req.body;
+    const { title, content, slug, tags } = req.body;
 
     if (!title || !content) {
       return res.status(400).json({ error: "Title and content are required" });
@@ -401,15 +393,6 @@ app.put("/api/wp-posts/translations/:translationId", async (req, res) => {
 
     const translation = rows[0];
 
-    // 2. Update in DB
-await db.query(
-  `UPDATE wp_post_translations
-   SET title = ?, content = ?
-   WHERE id = ?`,
-  [title, content, translationId]
-);
-
-    // 3. Re-publish to WordPress immediately
     const siteUrl = translation.site_path
       ? `${translation.site_url.replace(/\/$/, "")}${translation.site_path}`
       : translation.site_url.replace(/\/$/, "");
@@ -418,6 +401,53 @@ await db.query(
       `${translation.username}:${translation.app_password}`
     ).toString("base64");
 
+// NEW — create tags on WP if they don't exist
+let tagIds = [];
+if (tags && tags.trim()) {
+  const tagNames = tags.split(",").map(t => t.trim()).filter(Boolean);
+
+  for (const tagName of tagNames) {
+    try {
+      // Search for existing tag
+      const searchRes = await fetch(
+        `${siteUrl}/wp-json/wp/v2/tags?search=${encodeURIComponent(tagName)}&per_page=5`,
+        { headers: { Authorization: `Basic ${credentials}` } }
+      );
+      const existing = await searchRes.json();
+      const match = existing.find(
+        t => t.name.toLowerCase() === tagName.toLowerCase()
+      );
+
+      if (match) {
+        tagIds.push(match.id);
+      } else {
+        // Create new tag
+        const createRes = await fetch(`${siteUrl}/wp-json/wp/v2/tags`, {
+          method: "POST",
+          headers: {
+            Authorization: `Basic ${credentials}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ name: tagName }),
+        });
+        const newTag = await createRes.json();
+        if (newTag.id) tagIds.push(newTag.id);
+      }
+    } catch (tagErr) {
+      console.error(`Failed to resolve tag "${tagName}":`, tagErr.message);
+    }
+  }
+}
+
+    // 3. Build WP update payload
+    const wpPayload = {
+      title,
+      content,
+      ...(slug && slug.trim() ? { slug: slug.trim() } : {}),
+      ...(tagIds.length > 0 ? { tags: tagIds } : {}),
+    };
+
+    // 4. Re-publish to WordPress
     const wpResponse = await fetch(
       `${siteUrl}/wp-json/wp/v2/posts/${translation.external_post_id}`,
       {
@@ -426,22 +456,35 @@ await db.query(
           Authorization: `Basic ${credentials}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ title, content }),
+        body: JSON.stringify(wpPayload),
       }
     );
 
     if (!wpResponse.ok) {
       const err = await wpResponse.text();
       console.error("WP update failed:", err);
-      return res.status(500).json({ error: "DB updated but WP republish failed", details: err });
+      return res.status(500).json({
+        error: "WP republish failed",
+        details: err,
+      });
     }
 
     const wpData = await wpResponse.json();
 
+    // 5. Update in DB
+    await db.query(
+      `UPDATE wp_post_translations
+       SET title = ?, content = ?, slug = ?, tags = ?
+       WHERE id = ?`,
+      [title, content, slug || null, tags || null, translationId]
+    );
+
     res.json({
       success: true,
       wp_url: wpData.link,
-      message: "Translation updated and republished to WordPress"
+      slug: wpData.slug,
+      tags: tagIds,
+      message: "Translation updated and republished to WordPress",
     });
 
   } catch (err) {
@@ -450,6 +493,124 @@ await db.query(
   }
 });
 
+
+app.put("/api/wp-posts/translations/apply-all/:postId", async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { tags, slug } = req.body;
+
+    if (!tags && !slug) {
+      return res.status(400).json({ error: "Provide tags or slug to apply" });
+    }
+
+    // Get all translations for this post
+    const [translations] = await db.query(
+      `SELECT t.*, ws.site_url, ws.site_path, ws.username, ws.app_password
+       FROM wp_post_translations t
+       JOIN wordpress_sites ws ON ws.id = t.site_id
+       WHERE t.wp_post_id = ?`,
+      [postId]
+    );
+
+    if (!translations.length) {
+      return res.status(404).json({ error: "No translations found" });
+    }
+
+    const results = [];
+
+    for (const translation of translations) {
+      try {
+        const siteUrl = translation.site_path
+          ? `${translation.site_url.replace(/\/$/, "")}${translation.site_path}`
+          : translation.site_url.replace(/\/$/, "");
+
+        const credentials = Buffer.from(
+          `${translation.username}:${translation.app_password}`
+        ).toString("base64");
+
+        // Resolve tags per site
+        let tagIds = [];
+        if (tags && tags.trim()) {
+          const tagNames = tags.split(",").map(t => t.trim()).filter(Boolean);
+
+          for (const tagName of tagNames) {
+            try {
+              const searchRes = await fetch(
+                `${siteUrl}/wp-json/wp/v2/tags?search=${encodeURIComponent(tagName)}&per_page=5`,
+                { headers: { Authorization: `Basic ${credentials}` } }
+              );
+              const existing = await searchRes.json();
+              const match = existing.find(
+                t => t.name.toLowerCase() === tagName.toLowerCase()
+              );
+
+              if (match) {
+                tagIds.push(match.id);
+              } else {
+                const createRes = await fetch(`${siteUrl}/wp-json/wp/v2/tags`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Basic ${credentials}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({ name: tagName }),
+                });
+                const newTag = await createRes.json();
+                if (newTag.id) tagIds.push(newTag.id);
+              }
+            } catch (tagErr) {
+              console.error(`Tag error for "${tagName}" on ${siteUrl}:`, tagErr.message);
+            }
+          }
+        }
+
+        // Build WP payload
+        const wpPayload = {
+          ...(slug && slug.trim() ? { slug: slug.trim() } : {}),
+          ...(tagIds.length > 0 ? { tags: tagIds } : {}),
+        };
+
+        // Re-publish to WP
+        const wpResponse = await fetch(
+          `${siteUrl}/wp-json/wp/v2/posts/${translation.external_post_id}`,
+          {
+            method: "PUT",
+            headers: {
+              Authorization: `Basic ${credentials}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(wpPayload),
+          }
+        );
+
+        if (!wpResponse.ok) {
+          const err = await wpResponse.text();
+          results.push({ language: translation.language, success: false, error: err });
+          continue;
+        }
+
+        // Update DB
+        await db.query(
+          `UPDATE wp_post_translations
+           SET slug = ?, tags = ?
+           WHERE id = ?`,
+          [slug || null, tags || null, translation.id]
+        );
+
+        results.push({ language: translation.language, success: true });
+
+      } catch (err) {
+        results.push({ language: translation.language, success: false, error: err.message });
+      }
+    }
+
+    res.json({ success: true, results });
+
+  } catch (err) {
+    console.error("Apply all error:", err);
+    res.status(500).json({ error: "Server error", details: err.message });
+  }
+});
 
 
 

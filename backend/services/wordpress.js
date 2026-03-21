@@ -180,7 +180,8 @@ async function publishWordPress({
   status = "publish",
   scheduled_at = null,
   featured_media_id = null,
-  categories = []     // 👈 NEW
+  categories = [],
+  slug, tags    // 👈 NEW
 }) {
 const payload = {
   title,
@@ -200,6 +201,14 @@ if (featured_media_id) {
 if (categories && categories.length) {
   payload.categories = categories;
 }
+
+if (slug && slug.trim()) {
+    payload.slug = slug.trim();
+  }
+
+  if (tags && tags.length > 0) {
+    payload.tags = tags;
+  }
 
 
 
