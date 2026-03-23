@@ -613,6 +613,65 @@ app.put("/api/wp-posts/translations/apply-all/:postId", async (req, res) => {
 });
 
 
+app.delete("/api/wp-posts/translations/:translationId", async (req, res) => {
+  try {
+    const { translationId } = req.params;
+
+    // Get translation + site credentials
+    const [rows] = await db.query(
+      `SELECT t.*, ws.site_url, ws.site_path, ws.username, ws.app_password
+       FROM wp_post_translations t
+       JOIN wordpress_sites ws ON ws.id = t.site_id
+       WHERE t.id = ?`,
+      [translationId]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ error: "Translation not found" });
+    }
+
+    const translation = rows[0];
+
+    const siteUrl = translation.site_path
+      ? `${translation.site_url.replace(/\/$/, "")}${translation.site_path}`
+      : translation.site_url.replace(/\/$/, "");
+
+    const credentials = Buffer.from(
+      `${translation.username}:${translation.app_password}`
+    ).toString("base64");
+
+    // Delete from WordPress (force=true bypasses trash)
+    if (translation.external_post_id) {
+      const wpRes = await fetch(
+        `${siteUrl}/wp-json/wp/v2/posts/${translation.external_post_id}?force=true`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Basic ${credentials}` },
+        }
+      );
+
+      if (!wpRes.ok) {
+        const err = await wpRes.text();
+        console.error("WP delete failed:", err);
+        return res.status(500).json({ error: "Failed to delete from WordPress", details: err });
+      }
+    }
+
+    // Delete from DB
+    await db.query(
+      `DELETE FROM wp_post_translations WHERE id = ?`,
+      [translationId]
+    );
+
+    res.json({ success: true, message: "Translation deleted from WordPress and DB" });
+
+  } catch (err) {
+    console.error("Translation delete error:", err);
+    res.status(500).json({ error: "Server error", details: err.message });
+  }
+});
+
+
 
 
 // app.post('/api/posts', upload.array("files", 5), async (req, res) => {
