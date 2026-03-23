@@ -200,6 +200,12 @@ async function processWpPost(post) {
         ? `${wp.site_url.replace(/\/$/, "")}${wp.site_path}`
         : wp.site_url.replace(/\/$/, "");
 
+
+      // 2. Build credentials ← MUST be here before tags
+      const credentials = Buffer.from(
+        `${wp.username}:${wp.app_password}`
+      ).toString("base64");
+
       let title = post.title;
       let content = post.content;
       let excerpt = post.excerpt || "";
