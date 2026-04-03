@@ -13,6 +13,7 @@ import * as FB from "./services/facebook.js";
 import * as YT from "./services/youtube.js";
 import * as WP from "./services/wordpress.js";
 import * as TG from "./services/telegram.js";
+import { publishPanditjee } from "./services/panditjee.js";
 
 
 
@@ -357,6 +358,30 @@ async function processJob(row) {
     text: post.caption || post.title || post.content || "",
     media_url: post.image_url
   });
+}
+
+if (row.platform === "panditjee") {
+
+  const [accs] = await db.query(
+    "SELECT access_token, user_id FROM panditjee_users WHERE client_id = ?",
+    [row.client_id]
+  );
+
+  if (!accs.length) {
+    return { success: false, error: "Panditjee not connected" };
+  }
+
+  const acc = accs[0];
+
+  const result = await publishPanditjee({
+    access_token: acc.access_token,
+    influencerUserId: acc.user_id,
+    caption: post.caption || post.title || post.content || "",
+    media_url: post.image_url,                 // ✅ from DB
+    scheduleId: row.platform_post_id          // ✅ VERY IMPORTANT
+  });
+
+  return result;
 }
 
 

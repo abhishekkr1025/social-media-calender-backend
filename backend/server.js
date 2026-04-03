@@ -29,6 +29,7 @@ import youtubeRoutes from './routes/connectToYoutube.js';
 import wordpressRoutes from './routes/connectToWordpress.js';
 import telegramRoutes from './routes/connectToTelegram.js';
 import wordpressPostsRoutes from './services/wordpressPosts.js'
+import panditjeeRoutes from './routes/connectToPanditjee.js'
 // import { translateText } from './services/translate.js';
 import axios from 'axios';
 
@@ -1845,6 +1846,8 @@ app.use("/auth", wordpressRoutes);
 app.use("/auth", telegramRoutes);
 app.use("/api/wp-posts",wordpressPostsRoutes);
 app.use("/uploads", express.static("uploads"));
+app.use("/api",panditjeeRoutes);
+
 
 
 
