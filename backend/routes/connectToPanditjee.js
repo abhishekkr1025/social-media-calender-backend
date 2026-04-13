@@ -179,7 +179,7 @@ router.get("/clients/:clientId/panditjee/account", async (req, res) => {
 // DISCONNECT
 // DELETE /panditjee/disconnect/:clientId
 // =====================================================
-router.delete("/panditjee/disconnect/:clientId", async (req, res) => {
+router.delete("/clients/:clientId/panditjee/disconnect", async (req, res) => {
   const { clientId } = req.params;
 
   try {
