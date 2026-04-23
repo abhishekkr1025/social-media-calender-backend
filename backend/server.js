@@ -43,7 +43,8 @@ app.use(express.urlencoded({ extended: true }));
 
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://social-media-calendar.vercel.app"
+  "https://social-media-calendar.vercel.app",
+  "http://20.244.84.255"
 ];
 
 app.use((req, res, next) => {
