@@ -30,6 +30,7 @@ import wordpressRoutes from './routes/connectToWordpress.js';
 import telegramRoutes from './routes/connectToTelegram.js';
 import wordpressPostsRoutes from './services/wordpressPosts.js'
 import panditjeeRoutes from './routes/connectToPanditjee.js'
+import authRoutes, { requireAuth } from './routes/auth.js';
 // import { translateText } from './services/translate.js';
 import axios from 'axios';
 
@@ -72,6 +73,9 @@ app.use(
     cookie: { secure: false }, // secure:false for localhost
   })
 );
+
+
+
 
 // const upload = multer({
 //   dest: "uploads/"   // folder where files will be stored
@@ -1765,6 +1769,51 @@ app.post("/api/wordpress-sites/:id/test", async (req, res) => {
   }
 });
 
+
+app.get('/api/dashboard/stats', async (req, res) => {
+  try {
+    const [[{ total_posts }]] = await db.query(`SELECT COUNT(*) as total_posts FROM posts`);
+    const [[{ total_clients }]] = await db.query(`SELECT COUNT(*) as total_clients FROM clients`);
+    const [[{ total_wp_posts }]] = await db.query(`SELECT COUNT(*) as total_wp_posts FROM wp_posts`);
+    const [[{ total_published }]] = await db.query(`SELECT COUNT(*) as total_published FROM published_posts WHERE status = 'success'`);
+    const [[{ total_failed }]] = await db.query(`SELECT COUNT(*) as total_failed FROM published_posts WHERE status = 'failed'`);
+    const [[{ total_queued }]] = await db.query(`SELECT COUNT(*) as total_queued FROM queued_posts WHERE status = 'queued'`);
+
+    const [platformBreakdown] = await db.query(`
+      SELECT platform, COUNT(*) as count 
+      FROM published_posts WHERE status = 'success'
+      GROUP BY platform ORDER BY count DESC
+    `);
+
+    const [postsPerDay] = await db.query(`
+      SELECT DATE(created_at) as date, COUNT(*) as count
+      FROM published_posts WHERE status = 'success'
+        AND created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)
+      GROUP BY DATE(created_at) ORDER BY date ASC
+    `);
+
+    const [wpPostsByLanguage] = await db.query(`
+      SELECT language, COUNT(*) as count FROM wp_posts GROUP BY language
+    `);
+
+    const [recentActivity] = await db.query(`
+      SELECT pp.platform, pp.status, pp.created_at, p.caption, c.name as client_name
+      FROM published_posts pp
+      JOIN posts p ON p.id = pp.post_id
+      JOIN clients c ON c.id = pp.client_id
+      ORDER BY pp.created_at DESC LIMIT 8
+    `);
+
+    res.json({
+      total_posts, total_clients, total_wp_posts,
+      total_published, total_failed, total_queued,
+      platformBreakdown, postsPerDay, wpPostsByLanguage, recentActivity
+    });
+  } catch (err) {
+    console.error('Dashboard stats error:', err);
+    res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
 // ➕ Add new WordPress site
 app.post("/api/add/wordpress-sites", async (req, res) => {
   try {
@@ -1835,7 +1884,7 @@ app.post("/api/add/wordpress-sites", async (req, res) => {
 
 
 
-
+app.use('/auth', authRoutes);
 
 // CONNECT AUTH ROUTES AFTER MIDDLEWARE
 app.use("/auth", instagramRoutes);
@@ -1847,6 +1896,7 @@ app.use("/auth", telegramRoutes);
 app.use("/api/wp-posts",wordpressPostsRoutes);
 app.use("/uploads", express.static("uploads"));
 app.use("/api",panditjeeRoutes);
+app.use('/api', requireAuth);
 
 
 
