@@ -13,11 +13,12 @@ import cors from 'cors';
 import session from "express-session";
 import multer from "multer";
 
+
 import { publishLinkedIn } from './services/linkedin.js';
 import { publishTwitter } from './services/twitter.js';
 import { publishInstagram } from './services/instagram.js';
 import { publishFacebook } from './services/facebook.js';
-import { publishYouTube } from './services/youtube.js';
+import { publishYouTube ,publishYouTubeCommunityPost} from './services/youtube.js';
 import { publishWordPress } from './services/wordpress.js';
 import { publishTelegram } from './services/telegram.js';
 
@@ -1009,6 +1010,50 @@ app.post("/api/publish/youtube", async (req, res) => {
 
   } catch (err) {
     console.error("❌ YouTube publish error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/publish/youtube-community", upload.single("image"), async (req, res) => {
+  try {
+    const { clientId, caption } = req.body;
+
+    if (!clientId) {
+      return res.status(400).json({ error: "clientId is required" });
+    }
+
+    if (!caption) {
+      return res.status(400).json({ error: "caption is required" });
+    }
+
+    // Build image URL from uploaded file (same pattern as /api/posts)
+    const image_url = req.file
+      ? `https://prod.panditjee.com/uploads/${req.file.filename}`
+      : null;
+
+    // Fetch stored YouTube credentials
+    const [rows] = await db.query(
+      `SELECT refresh_token
+       FROM youtube_accounts
+       WHERE client_id = ?
+       LIMIT 1`,
+      [clientId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "YouTube not connected for this client" });
+    }
+
+    const result = await publishYouTubeCommunityPost({
+      refresh_token: rows[0].refresh_token,
+      caption,
+      image_url  // null if no file uploaded → text-only post
+    });
+
+    res.json(result);
+
+  } catch (err) {
+    console.error("❌ YouTube community post error:", err);
     res.status(500).json({ error: err.message });
   }
 });

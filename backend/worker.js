@@ -315,6 +315,22 @@ async function processJob(row) {
     });
   }
 
+  if (row.platform === "youtube-community") {
+  const [accs] = await db.query(
+    "SELECT * FROM youtube_accounts WHERE client_id = ?",
+    [row.client_id]
+  );
+
+  if (!accs.length) return { success: false, error: "No YouTube account connected" };
+
+  const acc = accs[0];
+
+  return YT.publishYouTubeCommunityPost({
+    refresh_token: acc.refresh_token,
+    caption: post.caption || post.title || post.content || "",
+    image_url: post.image_url || null
+  });
+}
 
   if (row.platform === "wordpress") {
     const [accs] = await db.query(

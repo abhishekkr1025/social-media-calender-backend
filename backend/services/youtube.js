@@ -168,6 +168,132 @@ export async function publishYouTube({
   }
 }
 
+/**
+ * Publishes an image + caption as a YouTube Community Post.
+ *
+ * @param {string} refresh_token  - Stored YouTube refresh token
+ * @param {string} caption        - Text caption for the community post
+ * @param {string} [image_url]    - Optional public URL of the image to attach
+ * @returns {object}
+ */
+export async function publishYouTubeCommunityPost({
+  refresh_token,
+  caption,
+  image_url
+}) {
+  try {
+    if (!refresh_token) throw new Error("Missing YouTube refresh_token");
+
+    // ── 1. Refresh access token ──────────────────────────────────────────
+    const refreshResp = await axios.post(
+      "https://oauth2.googleapis.com/token",
+      new URLSearchParams({
+        client_id:     process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        refresh_token,
+        grant_type:    "refresh_token"
+      })
+    );
+
+    const newAccessToken = refreshResp.data.access_token;
+    log("🔄 YouTube token refreshed for community post");
+
+    // ── 2. Download & upload image (if provided) ─────────────────────────
+    let images = [];
+
+    if (image_url) {
+      log("📥 Downloading image for community post:", image_url);
+
+      const imgResp = await axios.get(image_url, {
+        responseType: "arraybuffer"
+      });
+
+      const imageBuffer = Buffer.from(imgResp.data);
+
+      // Detect Content-Type from URL extension (default to jpeg)
+      const ext = image_url.split(".").pop().toLowerCase().split("?")[0];
+      const mimeMap = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp" };
+      const contentType = mimeMap[ext] || "image/jpeg";
+
+      log(`⬆ Uploading image to YouTube (${contentType}), size: ${imageBuffer.length}`);
+
+      // YouTube multipart upload for community post images
+      const boundary = "yt_community_boundary";
+      const metadata = JSON.stringify({ snippet: {} });
+
+      const body = Buffer.concat([
+        Buffer.from(
+          `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n`
+        ),
+        Buffer.from(`--${boundary}\r\nContent-Type: ${contentType}\r\n\r\n`),
+        imageBuffer,
+        Buffer.from(`\r\n--${boundary}--`)
+      ]);
+
+      const imgUploadResp = await axios.post(
+        "https://www.googleapis.com/upload/youtube/v3/posts/images?uploadType=multipart",
+        body,
+        {
+          headers: {
+            Authorization:  `Bearer ${newAccessToken}`,
+            "Content-Type": `multipart/related; boundary=${boundary}`,
+            "Content-Length": body.length
+          }
+        }
+      );
+
+      // The API returns an imageId used in the post body
+      const imageId = imgUploadResp.data?.id || imgUploadResp.data?.imageId;
+
+      if (!imageId) {
+        log("⚠️ Image upload succeeded but no imageId returned — posting text-only");
+      } else {
+        images = [{ imageId }];
+        log("✅ Image uploaded, imageId:", imageId);
+      }
+    }
+
+    // ── 3. Create community post ─────────────────────────────────────────
+    log("📢 Creating YouTube community post...");
+
+    const postBody = {
+      snippet: {
+        textOriginal: caption,
+        ...(images.length > 0 && { images })
+      }
+    };
+
+    const postResp = await axios.post(
+      "https://www.googleapis.com/youtube/v3/posts?part=snippet",
+      postBody,
+      {
+        headers: {
+          Authorization:  `Bearer ${newAccessToken}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    const postId  = postResp.data.id;
+    const postUrl = `https://www.youtube.com/post/${postId}`;
+
+    log("🎉 YouTube Community Post created:", postUrl);
+
+    return {
+      success:  true,
+      post_id:  postId,
+      post_url: postUrl
+    };
+
+  } catch (err) {
+    log("❌ YouTube community post error:", err.response?.data || err.message);
+    return {
+      success: false,
+      error: err.response?.data || err.message
+    };
+  }
+}
+
 // export async function publishYouTube({
 //   youtube_channel_id,
 //   access_token,
