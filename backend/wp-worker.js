@@ -6,6 +6,7 @@ import { sleep, log } from "./utils.js";
 import { publishWordPress } from "./services/wordpress.js";
 import { translateText } from "./services/translate.js";
 import { uploadImageToWordPress } from './services/wpMedia.js';
+import { downloadImageBuffer, uploadImageBufferToWordPress } from './services/wpMedia.js';
 
 
 const POLL_MS = 5000;
@@ -193,6 +194,22 @@ async function processWpPost(post) {
       throw new Error("No WordPress sites connected for client");
     }
 
+     // =====================================================
+    // 🖼 DOWNLOAD IMAGE ONCE (shared across all sites)
+    // =====================================================
+    let sharedImage = null;
+
+    if (post.featured_image_url) {
+      sharedImage = await downloadImageBuffer(post.featured_image_url);
+      if (sharedImage) {
+        log("✅ Image pre-downloaded:", sharedImage.filename, `(${sharedImage.buffer.length} bytes)`);
+      } else {
+        log("⚠ Image pre-download failed, sites will use their defaults");
+      }
+    }
+
+
+
     // 🔁 Loop through each site
     for (const wp of sites) {
 
@@ -319,21 +336,23 @@ if (post.tags && post.tags.trim()) {
       // Upload custom image if provided, otherwise fall back to site default
       let featured_media_id = wp.default_media_id || 0;
 
-      if (post.featured_image_url) {
-          log('🖼 Uploading custom image for post', post.id, '→', wp.language);
-         const uploadedId = await uploadImageToWordPress(
-         siteUrl,
-         wp.username,
-         wp.app_password,
-         post.featured_image_url
-       );
+      if (sharedImage) {
+        log("🖼 Uploading image for post", post.id, "→", wp.language);
+        const uploadedId = await uploadImageBufferToWordPress(
+          siteUrl,
+          wp.username,
+          wp.app_password,
+          sharedImage.buffer,
+          sharedImage.filename
+        );
        if (uploadedId) {
-        featured_media_id = uploadedId;
-        log('✅ Custom image uploaded, media_id:', uploadedId);
-       } else {
-        log('⚠ Custom image upload failed, using site default');
-       }
-}
+          featured_media_id = uploadedId;
+          log("✅ Custom image uploaded, media_id:", uploadedId);
+        } else {
+          log("⚠ Custom image upload failed, using site default");
+        }
+      }
+
 
 const result = await publishWordPress({
   site_url: siteUrl,
