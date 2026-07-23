@@ -21,6 +21,7 @@ import { publishFacebook } from './services/facebook.js';
 import { publishYouTube ,publishYouTubeCommunityPost} from './services/youtube.js';
 import { publishWordPress } from './services/wordpress.js';
 import { publishTelegram } from './services/telegram.js';
+ 
 
 
 import instagramRoutes from './routes/connectToInstgaram.js';
@@ -33,6 +34,12 @@ import wordpressPostsRoutes from './services/wordpressPosts.js'
 import panditjeeRoutes from './routes/connectToPanditjee.js'
 import authRoutes, { requireAuth } from './routes/auth.js';
 // import { translateText } from './services/translate.js';
+import { publishPinterest, refreshPinterestToken } from './services/pinterest.js';
+import pinterestRoutes from './routes/connectToPinterest.js';
+// import articleGenerationRoutes from './routes/articleGeneration.js';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './swagger.js';
+import bulkImportRoutes from './routes/bulkImport.js';
 import axios from 'axios';
 
 
@@ -41,6 +48,8 @@ const app = express();
 // body-parser is built into Express now
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+
 
 
 const allowedOrigins = [
@@ -1058,6 +1067,65 @@ app.post("/api/publish/youtube-community", upload.single("image"), async (req, r
   }
 });
 
+app.post("/api/publish/pinterest", async (req, res) => {
+  try {
+    const { clientId, title, description, link, image_url, board_id } = req.body;
+
+    if (!clientId) {
+      return res.status(400).json({ error: "clientId is required" });
+    }
+
+    // 1️⃣ Fetch stored Pinterest credentials
+    const [rows] = await db.query(
+      `SELECT access_token, refresh_token, token_expires_at, default_board_id
+       FROM pinterest_accounts
+       WHERE client_id = ?
+       LIMIT 1`,
+      [clientId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Pinterest not connected for this client" });
+    }
+
+    let { access_token, refresh_token, token_expires_at, default_board_id } = rows[0];
+
+    // 2️⃣ Refresh the access token if it is expired (or about to be)
+    const expiresAt = token_expires_at ? new Date(token_expires_at).getTime() : 0;
+    if (Date.now() > expiresAt - 60_000) {
+      console.log("🔄 Refreshing Pinterest access token for client", clientId);
+      const refreshed = await refreshPinterestToken(refresh_token);
+      access_token = refreshed.access_token;
+
+      const newExpiry = new Date(Date.now() + refreshed.expires_in * 1000);
+      await db.query(
+        `UPDATE pinterest_accounts
+         SET access_token = ?, token_expires_at = ?
+             ${refreshed.refresh_token ? ", refresh_token = ?" : ""}
+         WHERE client_id = ?`,
+        refreshed.refresh_token
+          ? [access_token, newExpiry, refreshed.refresh_token, clientId]
+          : [access_token, newExpiry, clientId]
+      );
+    }
+
+    // 3️⃣ Publish
+    const result = await publishPinterest({
+      access_token,
+      board_id: board_id || default_board_id,
+      title,
+      description,
+      link,
+      image_url,
+    });
+
+    res.json(result);
+  } catch (err) {
+    console.error("❌ Pinterest publish error:", err.response?.data || err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 
 
@@ -1262,6 +1330,53 @@ app.get("/api/clients/:clientId/youtube/account", async (req, res) => {
   } catch (err) {
     console.error("❌ Twitter fetch error:", err);
     res.status(500).json({ error: "Failed to fetch Twitter account" });
+  }
+});
+
+app.get("/api/clients/:clientId/pinterest/account", async (req, res) => {
+  const { clientId } = req.params;
+
+  try {
+    const [rows] = await db.query(
+      `SELECT pinterest_user_id, username, default_board_id, created_at
+       FROM pinterest_accounts
+       WHERE client_id = ?
+       LIMIT 1`,
+      [clientId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Pinterest not connected" });
+    }
+
+    res.json(rows[0]);
+  } catch (err) {
+    console.error("❌ Pinterest fetch error:", err);
+    res.status(500).json({ error: "Failed to fetch Pinterest account" });
+  }
+});
+
+app.get("/api/clients/:clientId/pinterest/boards", async (req, res) => {
+  const { clientId } = req.params;
+
+  try {
+    const [rows] = await db.query(
+      `SELECT access_token FROM pinterest_accounts WHERE client_id = ? LIMIT 1`,
+      [clientId]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Pinterest not connected" });
+    }
+
+    const boards = await axios.get(
+      "https://api.pinterest.com/v5/boards?page_size=100",
+      { headers: { Authorization: `Bearer ${rows[0].access_token}` } }
+    );
+
+    res.json(boards.data.items || []);
+  } catch (err) {
+    console.error("❌ Pinterest boards error:", err.response?.data || err.message);
+    res.status(500).json({ error: "Failed to fetch boards" });
   }
 });
 
@@ -1942,7 +2057,10 @@ app.use("/api/wp-posts",wordpressPostsRoutes);
 app.use("/uploads", express.static("uploads"));
 app.use("/api",panditjeeRoutes);
 app.use('/api', requireAuth);
-
+app.use("/auth", pinterestRoutes);
+// app.use("/api",articleGenerationRoutes);
+app.use(bulkImportRoutes);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 
 

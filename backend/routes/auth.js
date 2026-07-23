@@ -6,6 +6,30 @@ const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret';
 
 // ── LOGIN ────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /auth/login:
+ *   post:
+ *     summary: Log in and receive a JWT
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [username, password]
+ *             properties:
+ *               username:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *       401:
+ *         description: Invalid credentials
+ */
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
