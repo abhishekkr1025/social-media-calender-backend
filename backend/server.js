@@ -40,6 +40,7 @@ import pinterestRoutes from './routes/connectToPinterest.js';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './swagger.js';
 import bulkImportRoutes from './routes/bulkImport.js';
+import bulkImportMdRoutes from './routes/bulkImportMd.js';
 import axios from 'axios';
 
 
@@ -2060,6 +2061,7 @@ app.use('/api', requireAuth);
 app.use("/auth", pinterestRoutes);
 // app.use("/api",articleGenerationRoutes);
 app.use(bulkImportRoutes);
+app.use(bulkImportMdRoutes);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 
