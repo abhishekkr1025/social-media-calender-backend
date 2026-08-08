@@ -102,20 +102,21 @@ async function processSingleFile(file, { clientId, master_category_id, language,
 
     try {
         const [postResult] = await db.query(
-            `INSERT INTO wp_posts
-                (client_id, title, content, excerpt, scheduled_at, status, language, master_category_id, featured_image_url, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?, ?, NOW(), NOW())`,
-            [
-                clientId,
-                title.slice(0, 255),
-                htmlContent,
-                excerpt,
-                scheduledAt,
-                language.slice(0, 10),
-                master_category_id || null,
-                null
-            ]
-        );
+    `INSERT INTO wp_posts
+        (client_id, title, content, excerpt, scheduled_at, status, language, master_category_id, source_filename, featured_image_url, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?, ?, ?, NOW(), NOW())`,
+    [
+        clientId,
+        title.slice(0, 255),
+        htmlContent,
+        excerpt,
+        scheduledAt,
+        language.slice(0, 10),
+        master_category_id || null,
+        filename,
+        null
+    ]
+);
 
         return {
             success: true,
@@ -167,4 +168,19 @@ router.post('/api/bulk-import-md', requireAuth, upload.array('files', 50), async
     });
 });
 
+// Temporarily replace your GET /today route body with this to see the raw error:
+router.get('/api/bulk-import-md/today', requireAuth, async (req, res) => {
+    try {
+        const [rows] = await db.query(
+            `SELECT id, title, content, excerpt, source_filename, language, client_id, created_at, scheduled_at
+             FROM wp_posts
+             WHERE DATE(created_at) = CURDATE()
+             ORDER BY created_at DESC`
+        );
+        res.json(rows);
+    } catch (err) {
+        console.error('TODAY QUERY FAILED:', err); // <-- check your server terminal for this
+        res.status(500).json({ error: err.message });
+    }
+});
 export default router;
