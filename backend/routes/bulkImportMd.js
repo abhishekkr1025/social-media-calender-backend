@@ -18,8 +18,6 @@ const upload = multer({
     }
 });
 
-
-
 /**
     Auto-quote frontmatter values containing an unquoted colon,
     since titles/descriptions commonly contain colons (e.g. "Row: SC To Hear...")
@@ -31,8 +29,6 @@ function sanitizeFrontmatterColons(rawText) {
 
     const frontmatterBlock = frontmatterMatch[1];
     const fixedLines = frontmatterBlock.split('\n').map(line => {
-        // Match "key: value" where value isn't already quoted, isn't a list (starts with -/[),
-        // and contains a colon-space further in the value
         const kvMatch = line.match(/^(\s*[\w-]+):\s*(.+)$/);
         if (!kvMatch) return line;
 
@@ -64,38 +60,29 @@ function extractTitleAndBody(markdownBody) {
     return { title, body };
 }
 
-router.post('/api/bulk-import-md', requireAuth, upload.single('file'), async (req, res) => {
-    if (!req.file) {
-        return res.status(400).json({ error: 'No file uploaded' });
-    }
+/**
+    Processes a single uploaded .md file end-to-end.
+    Returns { success: true, ... } or { success: false, error, filename }
+    instead of throwing, so the batch loop can continue past a bad file.
+*/
+async function processSingleFile(file, { clientId, master_category_id, language, scheduled_at }) {
+    const filename = file.originalname;
 
-    const {
-        clientId,
-        master_category_id,
-        language = 'English',
-        scheduled_at
-    } = req.body;
-
-    if (!clientId) {
-        return res.status(400).json({ error: 'clientId is required' });
-    }
-
-    const rawText = req.file.buffer.toString('utf-8');
+    const rawText = file.buffer.toString('utf-8');
     const sanitizedText = sanitizeFrontmatterColons(rawText);
 
     let parsed;
     try {
         parsed = matter(sanitizedText);
     } catch (err) {
-        return res.status(400).json({ error: 'Failed to parse frontmatter', details: err.message });
+        return { success: false, filename, error: 'Failed to parse frontmatter', details: err.message };
     }
-
 
     const { data: frontmatter, content: markdownBody } = parsed;
     const { title, body } = extractTitleAndBody(markdownBody);
 
     if (!title || !body.trim()) {
-        return res.status(400).json({ error: 'Missing H1 title or empty body' });
+        return { success: false, filename, error: 'Missing H1 title or empty body' };
     }
 
     const htmlContent = marked.parse(body);
@@ -130,15 +117,54 @@ router.post('/api/bulk-import-md', requireAuth, upload.single('file'), async (re
             ]
         );
 
-        res.json({
+        return {
             success: true,
+            filename,
             postId: postResult.insertId,
             title,
             scheduledAt
-        });
+        };
     } catch (err) {
-        res.status(500).json({ error: 'Failed to insert post', details: err.message });
+        return { success: false, filename, error: 'Failed to insert post', details: err.message };
     }
+}
+
+router.post('/api/bulk-import-md', requireAuth, upload.array('files', 50), async (req, res) => {
+    if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ error: 'No files uploaded' });
+    }
+
+    const {
+        clientId,
+        master_category_id,
+        language = 'English',
+        scheduled_at
+    } = req.body;
+
+    if (!clientId) {
+        return res.status(400).json({ error: 'clientId is required' });
+    }
+
+    const options = { clientId, master_category_id, language, scheduled_at };
+
+    // Process sequentially to avoid hammering the DB pool with 50 parallel inserts,
+    // and so one file's failure doesn't affect the others.
+    const results = [];
+    for (const file of req.files) {
+        const result = await processSingleFile(file, options);
+        results.push(result);
+    }
+
+    const succeeded = results.filter(r => r.success);
+    const failed = results.filter(r => !r.success);
+
+    res.json({
+        success: failed.length === 0,
+        total: results.length,
+        succeededCount: succeeded.length,
+        failedCount: failed.length,
+        results
+    });
 });
 
 export default router;
