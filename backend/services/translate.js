@@ -61,7 +61,7 @@ export async function translateText({ payload, language }) {
     console.error(
       "❌ Translation service error:",
       err.response?.data || err.message
-    );
+    );  
 
     // 🛟 Graceful fallback (return original text)
     return payload;

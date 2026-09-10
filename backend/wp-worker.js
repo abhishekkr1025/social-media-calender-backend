@@ -248,7 +248,7 @@ async function processWpPost(post) {
         } catch (translationError) {
           log("⚠ Translation failed for", wp.language, translationError.message);
           throw new Error(`Translation failed for ${wp.language}`);
-        }
+        } 
       }
 
       // =====================================================

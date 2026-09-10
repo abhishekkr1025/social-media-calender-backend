@@ -137,21 +137,43 @@ router.post('/api/bulk-import-md', requireAuth, upload.array('files', 50), async
 
     const {
         clientId,
-        master_category_id,
         language = 'English',
-        scheduled_at
+        fileMeta
     } = req.body;
 
     if (!clientId) {
         return res.status(400).json({ error: 'clientId is required' });
     }
 
-    const options = { clientId, master_category_id, language, scheduled_at };
+    // fileMeta is a JSON array, one entry per file, in the SAME order the frontend
+    // appended files to the "files" field — multer/FormData preserve that order,
+    // so req.files[i] pairs with parsedMeta[i].
+    let parsedMeta = [];
+    if (fileMeta) {
+        try {
+            parsedMeta = JSON.parse(fileMeta);
+        } catch (err) {
+            return res.status(400).json({ error: 'fileMeta must be valid JSON' });
+        }
+        if (!Array.isArray(parsedMeta)) {
+            return res.status(400).json({ error: 'fileMeta must be a JSON array' });
+        }
+    }
 
     // Process sequentially to avoid hammering the DB pool with 50 parallel inserts,
     // and so one file's failure doesn't affect the others.
     const results = [];
-    for (const file of req.files) {
+    for (let i = 0; i < req.files.length; i++) {
+        const file = req.files[i];
+        const meta = parsedMeta[i] || {};
+
+        const options = {
+            clientId,
+            language,
+            master_category_id: meta.master_category_id || null,
+            scheduled_at: meta.scheduled_at || null
+        };
+
         const result = await processSingleFile(file, options);
         results.push(result);
     }
