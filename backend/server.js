@@ -236,18 +236,6 @@ app.post("/api/wp-posts", upload.single("featured_image"), async (req, res) => {
   }
 });
 
-
-
-
-
-
-
-
-
-
-
-
-
 // // 🟢 Get all clients
 app.get("/api/clients", async (req, res) => {
   const [rows] = await db.query("SELECT * FROM clients ORDER BY joined_on DESC");
