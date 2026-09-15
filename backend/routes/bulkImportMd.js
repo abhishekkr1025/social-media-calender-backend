@@ -77,14 +77,43 @@ function sanitizeFrontmatterColons(rawText) {
     return rawText.replace(frontmatterMatch[0], `---\n${fixedBlock}\n---`);
 }
 
-function extractTitleAndBody(markdownBody) {
+/**
+    Prefers an explicit "# " (H1) heading for the title, since that's an
+    unambiguous signal. Some generated files instead put the headline as a
+    bare first line with no "#", relying on frontmatter `title:` for the
+    real title — for those, fall back to frontmatter.title, and if the
+    body's first line is just repeating that title, drop it so the
+    headline doesn't end up duplicated (once as the WP post title, once as
+    a stray first line of body text).
+*/
+function extractTitleAndBody(markdownBody, frontmatterTitle) {
     const h1Match = markdownBody.match(/^#\s+(.+)$/m);
-    if (!h1Match) {
-        return { title: null, body: markdownBody };
+    if (h1Match) {
+        const title = h1Match[1].trim();
+        const body = markdownBody.replace(h1Match[0], '').trim();
+        return { title, body };
     }
-    const title = h1Match[1].trim();
-    const body = markdownBody.replace(h1Match[0], '').trim();
-    return { title, body };
+
+    if (frontmatterTitle && frontmatterTitle.trim()) {
+        const title = frontmatterTitle.trim();
+        const lines = markdownBody.split('\n');
+        const firstContentIdx = lines.findIndex(l => l.trim().length > 0);
+
+        let body = markdownBody;
+        if (firstContentIdx !== -1) {
+            const firstLine = lines[firstContentIdx].trim().toLowerCase();
+            // Ignore a " | Site Name" style suffix when comparing, since that's
+            // usually meant for the SEO <title> tag, not the bare headline text.
+            const titleForCompare = title.toLowerCase().split('|')[0].trim();
+            if (firstLine === titleForCompare || firstLine.startsWith(titleForCompare)) {
+                lines.splice(firstContentIdx, 1);
+                body = lines.join('\n');
+            }
+        }
+        return { title, body: body.trim() };
+    }
+
+    return { title: null, body: markdownBody };
 }
 
 /**
@@ -128,7 +157,7 @@ async function processSingleFile(file, { clientId, master_category_id, language,
     }
 
     const { data: frontmatter, content: markdownBody } = parsed;
-    const { title, body } = extractTitleAndBody(markdownBody);
+    const { title, body } = extractTitleAndBody(markdownBody, frontmatter.title);
 
     if (!title || !body.trim()) {
         return { success: false, filename, error: 'Missing H1 title or empty body' };
