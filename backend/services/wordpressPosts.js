@@ -132,21 +132,35 @@ router.delete("/delete/:id", async (req, res) => {
   try {
     const { post, site } = await getSiteByPostId(req.params.id);
 
-    // 🔹 Delete from WordPress
-    await axios.delete(
-      `${site.site_url}${site.site_path || ""}/wp-json/wp/v2/posts/${post.wp_post_id}?force=true`,
-      {
-        headers: getAuthHeader(site),
-      }
-    );
+    let wpError = null;
 
-    // 🔹 Delete from Local DB
+    // 🔹 Try to delete from WordPress, but don't let a WP-side failure
+    //    (already deleted manually, stale/missing wp_post_id, bad creds, etc.)
+    //    block us from cleaning up the local row.
+    if (post.wp_post_id) {
+      try {
+        await axios.delete(
+          `${site.site_url}${site.site_path || ""}/wp-json/wp/v2/posts/${post.wp_post_id}?force=true`,
+          {
+            headers: getAuthHeader(site),
+          }
+        );
+      } catch (err) {
+        wpError = err.response?.data || err.message;
+        console.warn(
+          `WP delete failed for wp_post_id=${post.wp_post_id} (continuing to remove local row):`,
+          wpError
+        );
+      }
+    }
+
+    // 🔹 Delete from Local DB regardless of WP outcome
     await db.query(
       "DELETE FROM wp_posts WHERE id = ?",
       [req.params.id]
     );
 
-    res.json({ success: true });
+    res.json({ success: true, wpWarning: wpError || undefined });
   } catch (err) {
     console.error(err.response?.data || err.message);
     res.status(500).json({
