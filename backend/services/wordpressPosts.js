@@ -126,46 +126,29 @@ router.put("/update/:id", async (req, res) => {
 });
 
 /* =========================================
-   4️⃣ DELETE POST (WP + DB)
+   4️⃣ DELETE POST (Local DB only)
+   Called after all translations for this
+   post have already been deleted from WP.
+   This just removes the scheduling/master
+   entry so the worker won't process it.
 ========================================= */
 router.delete("/delete/:id", async (req, res) => {
   try {
-    const { post, site } = await getSiteByPostId(req.params.id);
-
-    let wpError = null;
-
-    // 🔹 Try to delete from WordPress, but don't let a WP-side failure
-    //    (already deleted manually, stale/missing wp_post_id, bad creds, etc.)
-    //    block us from cleaning up the local row.
-    // if (post.wp_post_id) {
-    //   try {
-    //     await axios.delete(
-    //       `${site.site_url}${site.site_path || ""}/wp-json/wp/v2/posts/${post.wp_post_id}?force=true`,
-    //       {
-    //         headers: getAuthHeader(site),
-    //       }
-    //     );
-    //   } catch (err) {
-    //     wpError = err.response?.data || err.message;
-    //     console.warn(
-    //       `WP delete failed for wp_post_id=${post.wp_post_id} (continuing to remove local row):`,
-    //       wpError
-    //     );
-    //   }
-    // }
-
-    // 🔹 Delete from Local DB regardless of WP outcome
-    await db.query(
+    const [result] = await db.query(
       "DELETE FROM wp_posts WHERE id = ?",
       [req.params.id]
     );
 
-    res.json({ success: true, wpWarning: wpError || undefined });
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+
+    res.json({ success: true });
   } catch (err) {
-    console.error(err.response?.data || err.message);
+    console.error(err);
     res.status(500).json({
       error: "Failed to delete post",
-      details: err.response?.data || err.message,
+      details: err.message,
     });
   }
 });
