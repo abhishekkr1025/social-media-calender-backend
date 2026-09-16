@@ -137,22 +137,22 @@ router.delete("/delete/:id", async (req, res) => {
     // 🔹 Try to delete from WordPress, but don't let a WP-side failure
     //    (already deleted manually, stale/missing wp_post_id, bad creds, etc.)
     //    block us from cleaning up the local row.
-    if (post.wp_post_id) {
-      try {
-        await axios.delete(
-          `${site.site_url}${site.site_path || ""}/wp-json/wp/v2/posts/${post.wp_post_id}?force=true`,
-          {
-            headers: getAuthHeader(site),
-          }
-        );
-      } catch (err) {
-        wpError = err.response?.data || err.message;
-        console.warn(
-          `WP delete failed for wp_post_id=${post.wp_post_id} (continuing to remove local row):`,
-          wpError
-        );
-      }
-    }
+    // if (post.wp_post_id) {
+    //   try {
+    //     await axios.delete(
+    //       `${site.site_url}${site.site_path || ""}/wp-json/wp/v2/posts/${post.wp_post_id}?force=true`,
+    //       {
+    //         headers: getAuthHeader(site),
+    //       }
+    //     );
+    //   } catch (err) {
+    //     wpError = err.response?.data || err.message;
+    //     console.warn(
+    //       `WP delete failed for wp_post_id=${post.wp_post_id} (continuing to remove local row):`,
+    //       wpError
+    //     );
+    //   }
+    // }
 
     // 🔹 Delete from Local DB regardless of WP outcome
     await db.query(
