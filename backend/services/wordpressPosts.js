@@ -231,4 +231,41 @@ router.put("/halt/:id", async (req, res) => {
   }
 });
 
+/* =========================================
+   7️⃣ RESCHEDULE POST
+   Updates scheduled_at and resets status so
+   the worker treats it as pending again.
+========================================= */
+router.put("/reschedule/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { scheduled_at } = req.body;
+
+    if (!scheduled_at) {
+      return res.status(400).json({ error: "scheduled_at is required" });
+    }
+
+    const [[post]] = await db.query("SELECT * FROM wp_posts WHERE id = ?", [id]);
+    if (!post) return res.status(404).json({ error: "Post not found" });
+
+    if (post.status === "processing") {
+      return res.status(409).json({
+        error: "Pipeline is currently running for this post. Halt it before rescheduling.",
+      });
+    }
+
+    await db.query(
+      `UPDATE wp_posts
+       SET scheduled_at = ?, status = 'scheduled', error_message = NULL, cancel_requested = 0
+       WHERE id = ?`,
+      [scheduled_at, id]
+    );
+
+    res.json({ success: true, scheduled_at });
+  } catch (err) {
+    console.error("Reschedule error:", err);
+    res.status(500).json({ error: "Failed to reschedule post", details: err.message });
+  }
+});
+
 export default router;
