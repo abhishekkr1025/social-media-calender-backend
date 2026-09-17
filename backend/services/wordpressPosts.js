@@ -153,4 +153,82 @@ router.delete("/delete/:id", async (req, res) => {
   }
 });
 
+/* =========================================
+   5️⃣ TRIGGER PIPELINE NOW
+   Re-queues this post so the worker's next
+   poll (≈5s) picks it up immediately instead
+   of waiting for scheduled_at.
+========================================= */
+router.put("/trigger/:id", async (req, res) => {
+  try {
+    const [[post]] = await db.query(
+      "SELECT * FROM wp_posts WHERE id = ?",
+      [req.params.id]
+    );
+
+    if (!post) return res.status(404).json({ error: "Post not found" });
+
+    if (post.status === "processing") {
+      return res.status(409).json({ error: "Post is already being processed" });
+    }
+
+    await db.query(
+      `UPDATE wp_posts
+       SET status = 'scheduled', scheduled_at = NOW(), error_message = NULL, cancel_requested = 0
+       WHERE id = ?`,
+      [req.params.id]
+    );
+
+    res.json({
+      success: true,
+      message: "Queued. The worker will pick this up within a few seconds.",
+    });
+  } catch (err) {
+    console.error("Trigger error:", err);
+    res.status(500).json({ error: "Failed to trigger post", details: err.message });
+  }
+});
+
+/* =========================================
+   6️⃣ HALT PIPELINE
+   - If still 'scheduled' (worker hasn't claimed
+     it yet): cancel instantly, no worker involved.
+   - If 'processing': set a cooperative flag the
+     worker checks between sites. Stops after the
+     current site's publish call completes.
+========================================= */
+router.put("/halt/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Case 1: not yet claimed — cancel immediately
+    const [immediate] = await db.query(
+      `UPDATE wp_posts
+       SET status = 'failed', error_message = 'Cancelled by user before starting'
+       WHERE id = ? AND status = 'scheduled'`,
+      [id]
+    );
+    if (immediate.affectedRows > 0) {
+      return res.json({ success: true, message: "Cancelled before the worker picked it up." });
+    }
+
+    // Case 2: currently processing — request cooperative halt
+    const [requested] = await db.query(
+      `UPDATE wp_posts SET cancel_requested = 1 WHERE id = ? AND status = 'processing'`,
+      [id]
+    );
+    if (requested.affectedRows > 0) {
+      return res.json({
+        success: true,
+        message: "Halt requested — it will stop after the current site finishes publishing.",
+      });
+    }
+
+    return res.status(409).json({ error: "This post isn't scheduled or processing; nothing to halt." });
+  } catch (err) {
+    console.error("Halt error:", err);
+    res.status(500).json({ error: "Failed to halt post", details: err.message });
+  }
+});
+
 export default router;

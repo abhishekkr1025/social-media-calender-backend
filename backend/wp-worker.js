@@ -213,6 +213,15 @@ async function processWpPost(post) {
     // 🔁 Loop through each site
     for (const wp of sites) {
 
+      // 🛑 Cooperative cancellation check
+      const [[fresh]] = await db.query(
+        "SELECT cancel_requested FROM wp_posts WHERE id = ?",
+        [post.id]
+      );
+      if (fresh?.cancel_requested) {
+        throw new Error("Halted by user request");
+      }
+
       const siteUrl = wp.site_path
         ? `${wp.site_url.replace(/\/$/, "")}${wp.site_path}`
         : wp.site_url.replace(/\/$/, "");
@@ -419,15 +428,11 @@ const result = await publishWordPress({
   } catch (err) {
 
     await db.query(
-      `
-      UPDATE wp_posts
-      SET status='failed',
-          error_message=?,
-          updated_at=NOW()
-      WHERE id=?
-      `,
-      [err.message?.substring(0, 2000), post.id]
-    );
+    `UPDATE wp_posts
+     SET status='failed', error_message=?, cancel_requested=0, updated_at=NOW()
+     WHERE id=?`,
+    [err.message?.substring(0, 2000), post.id]
+  );
 
     log("❌ WP multisite publish failed:", post.id, err.message);
   }
