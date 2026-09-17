@@ -143,7 +143,7 @@ function saveImageAndGetUrl(imageFile, req) {
     Returns { success: true, ... } or { success: false, error, filename }
     instead of throwing, so the batch loop can continue past a bad file.
 */
-async function processSingleFile(file, { clientId, master_category_id, language, scheduled_at, featured_image_url }) {
+async function processSingleFile(file, { clientId, master_category_id, language, scheduled_at, featured_image_url,  slug, tags  }) {
     const filename = file.originalname;
 
     const rawText = file.buffer.toString('utf-8');
@@ -180,9 +180,9 @@ async function processSingleFile(file, { clientId, master_category_id, language,
 
     try {
         const [postResult] = await db.query(
-    `INSERT INTO wp_posts
-        (client_id, title, content, excerpt, scheduled_at, status, language, master_category_id, source_filename, featured_image_url, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?, ?, ?, NOW(), NOW())`,
+   `INSERT INTO wp_posts
+                (client_id, title, content, excerpt, scheduled_at, status, language, master_category_id, source_filename, featured_image_url, slug, tags, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
     [
         clientId,
         title.slice(0, 255),
@@ -192,7 +192,9 @@ async function processSingleFile(file, { clientId, master_category_id, language,
         language.slice(0, 10),
         master_category_id || null,
         filename,
-        featured_image_url || null
+        featured_image_url || null,
+        slug || null,     
+        tags || null     
     ]
 );
 
@@ -202,7 +204,9 @@ async function processSingleFile(file, { clientId, master_category_id, language,
             postId: postResult.insertId,
             title,
             scheduledAt,
-            featured_image_url: featured_image_url || null
+            featured_image_url: featured_image_url || null,
+            slug: slug || null,   // ← NEW, so it shows in the results panel too
+            tags: tags || null  
         };
     } catch (err) {
         return { success: false, filename, error: 'Failed to insert post', details: err.message };
@@ -279,7 +283,9 @@ router.post(
                 language,
                 master_category_id: meta.master_category_id || null,
                 scheduled_at: meta.scheduled_at || null,
-                featured_image_url
+                featured_image_url,
+                slug: meta.slug || null,
+                tags: meta.tags || null
             };
 
             const result = await processSingleFile(file, options);
