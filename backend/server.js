@@ -332,9 +332,11 @@ app.get('/api/wp-posts', async (req, res) => {
     const [rows] = await db.query(`
       SELECT 
         wp.*,
-        mc.name AS master_category_name
+        mc.name AS master_category_name,
+        c.name AS client_name
       FROM wp_posts wp
       LEFT JOIN master_categories mc ON mc.id = wp.master_category_id
+      LEFT JOIN clients c ON c.id = wp.client_id
       ORDER BY wp.scheduled_at DESC
       LIMIT 500
     `);
