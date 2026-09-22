@@ -1487,8 +1487,15 @@ app.post(
 
 
 app.get("/api/master-categories", async (req, res) => {
+  const { clientId } = req.query;
+
+  if (!clientId) {
+    return res.status(400).json({ error: "clientId is required" });
+  }
+
   const [rows] = await db.query(
-    "SELECT * FROM master_categories ORDER BY name"
+    "SELECT * FROM master_categories WHERE client_id = ? ORDER BY name",
+    [clientId]
   );
   res.json(rows);
 });
@@ -1499,6 +1506,32 @@ app.get("/api/master-categories", async (req, res) => {
 //   );
 //   res.json(rows);
 // });
+
+app.post("/api/master-categories", async (req, res) => {
+  try {
+    const { name, clientId } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: "name is required" });
+    }
+    if (!clientId) {
+      return res.status(400).json({ error: "clientId is required" });
+    }
+
+    const [result] = await db.query(
+      "INSERT INTO master_categories (name, client_id) VALUES (?, ?)",
+      [name.trim(), clientId]
+    );
+
+    res.json({ success: true, id: result.insertId });
+  } catch (err) {
+    if (err.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({ error: "This category already exists for this brand" });
+    }
+    console.error("Add master category error:", err);
+    res.status(500).json({ error: "Failed to add master category" });
+  }
+});
 
 // GET all mappings for a site
 app.get("/api/site-category-mapping/:siteId", async (req, res) => {
@@ -1594,37 +1627,36 @@ app.post("/api/site-category-mapping/:siteId", async (req, res) => {
 app.post("/api/site-category-mapping/:siteId/auto-match", async (req, res) => {
   const siteId = req.params.siteId;
 
+  // Get the site's client_id so we know which brand's masters to use
+  const [siteRows] = await db.query(
+    "SELECT client_id FROM wordpress_sites WHERE id = ?",
+    [siteId]
+  );
+  if (!siteRows.length) {
+    return res.status(404).json({ error: "Site not found" });
+  }
+  const { client_id } = siteRows[0];
+
   const [masters] = await db.query(
-    "SELECT id, name FROM master_categories"
+    "SELECT id, name FROM master_categories WHERE client_id = ?",
+    [client_id]
   );
 
   const [siteCats] = await db.query(
-    `SELECT wp_category_id, slug
-     FROM wordpress_site_categories
-     WHERE site_id = ?`,
+    `SELECT wp_category_id, slug FROM wordpress_site_categories WHERE site_id = ?`,
     [siteId]
   );
 
   const mapping = {};
-
   for (const master of masters) {
-    const normalized = master.name
-      .toLowerCase()
-      .replace(/\s+/g, "-");
-
-    const match = siteCats.find(
-      c => c.slug.toLowerCase() === normalized
-    );
-
+    const normalized = master.name.toLowerCase().replace(/\s+/g, "-");
+    const match = siteCats.find(c => c.slug.toLowerCase() === normalized);
     if (match) {
       mapping[master.id] = match.wp_category_id;
-
       await db.query(`
-        INSERT INTO site_category_mapping
-        (master_category_id, site_id, wp_category_id)
+        INSERT INTO site_category_mapping (master_category_id, site_id, wp_category_id)
         VALUES (?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-        wp_category_id = VALUES(wp_category_id)
+        ON DUPLICATE KEY UPDATE wp_category_id = VALUES(wp_category_id)
       `, [master.id, siteId, match.wp_category_id]);
     }
   }
