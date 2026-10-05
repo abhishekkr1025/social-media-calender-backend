@@ -376,6 +376,7 @@ router.get('/api/bulk-import-md/wp-authors', requireAuth, async (req, res) => {
             id: u.id,
             name: u.name,
             slug: u.slug,
+            username: u.username || u.slug,  
             isDefault: u.id === defaultUserId
         })));
     } catch (err) {
