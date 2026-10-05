@@ -5,7 +5,6 @@ import db from "./db.js";
 import { sleep, log } from "./utils.js";
 import { publishWordPress } from "./services/wordpress.js";
 import { translateText } from "./services/translate.js";
-import { uploadImageToWordPress } from './services/wpMedia.js';
 import { downloadImageBuffer, uploadImageBufferToWordPress } from './services/wpMedia.js';
 
 
@@ -17,6 +16,36 @@ function nowStr() {
   return new Date().toISOString();
 }
 
+async function resolveAuthorId(siteUrl, credentials, authorUsername) {
+  if (!authorUsername) return null;
+
+  try {
+    const res = await fetch(
+      `${siteUrl}/wp-json/wp/v2/users?search=${encodeURIComponent(authorUsername)}&per_page=10`,
+      { headers: { Authorization: `Basic ${credentials}` } }
+    );
+
+    if (!res.ok) {
+      log("⚠ Author lookup failed on", siteUrl, res.status);
+      return null;
+    }
+
+    const users = await res.json();
+    const match = Array.isArray(users)
+      ? users.find(u => u.slug === authorUsername)
+      : null;
+
+    if (!match) {
+      log("⚠ No matching author for", authorUsername, "on", siteUrl);
+      return null;
+    }
+
+    return match.id;
+  } catch (err) {
+    log("⚠ Author lookup error on", siteUrl, err.message);
+    return null;
+  }
+}
 
 
 async function claimAndProcessWpBatch() {
@@ -289,6 +318,14 @@ async function processWpPost(post) {
         }
       }
 
+      const authorId = await resolveAuthorId(siteUrl, credentials, post.author_username);
+      if (post.author_username) {
+        log(
+          authorId
+            ? `✅ Resolved author "${post.author_username}" → user ${authorId} on ${wp.language}`
+            : `⚠ Could not resolve author "${post.author_username}" on ${wp.language}, using default`
+        );
+      }
 
 
       let tagIds = [];
@@ -376,6 +413,7 @@ const result = await publishWordPress({
   categories,
   slug: post.slug || undefined,   // ← ADD
   tags: tagIds.length > 0 ? tagIds : undefined,  // ← ADD
+   author: authorId || undefined,
 });
 
 

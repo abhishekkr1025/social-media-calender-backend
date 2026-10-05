@@ -143,7 +143,7 @@ function saveImageAndGetUrl(imageFile, req) {
     Returns { success: true, ... } or { success: false, error, filename }
     instead of throwing, so the batch loop can continue past a bad file.
 */
-async function processSingleFile(file, { clientId, master_category_id, language, scheduled_at, featured_image_url,  slug, tags  }) {
+async function processSingleFile(file, { clientId, master_category_id, language, scheduled_at, featured_image_url, slug, tags, author_username }) {
     const filename = file.originalname;
 
     const rawText = file.buffer.toString('utf-8');
@@ -181,8 +181,8 @@ async function processSingleFile(file, { clientId, master_category_id, language,
     try {
         const [postResult] = await db.query(
    `INSERT INTO wp_posts
-                (client_id, title, content, excerpt, scheduled_at, status, language, master_category_id, source_filename, featured_image_url, slug, tags, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+                (client_id, title, content, excerpt, scheduled_at, status, language, master_category_id, source_filename, featured_image_url, slug, tags, author_username, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
     [
         clientId,
         title.slice(0, 255),
@@ -193,8 +193,9 @@ async function processSingleFile(file, { clientId, master_category_id, language,
         master_category_id || null,
         filename,
         featured_image_url || null,
-        slug || null,     
-        tags || null     
+        slug || null,
+        tags || null,
+        author_username || null
     ]
 );
 
@@ -205,8 +206,9 @@ async function processSingleFile(file, { clientId, master_category_id, language,
             title,
             scheduledAt,
             featured_image_url: featured_image_url || null,
-            slug: slug || null,   // ← NEW, so it shows in the results panel too
-            tags: tags || null  
+            slug: slug || null,
+            tags: tags || null,
+            author_username: author_username || null   // ← NEW, so it shows in the results panel too
         };
     } catch (err) {
         return { success: false, filename, error: 'Failed to insert post', details: err.message };
@@ -285,7 +287,8 @@ router.post(
                 scheduled_at: meta.scheduled_at || null,
                 featured_image_url,
                 slug: meta.slug || null,
-                tags: meta.tags || null
+                tags: meta.tags || null,
+                author_username: meta.author_username || null
             };
 
             const result = await processSingleFile(file, options);
@@ -305,11 +308,65 @@ router.post(
     }
 );
 
+/**
+    Returns the list of WordPress users (potential authors) for a client, so the
+    frontend can offer them in a dropdown. Only meaningful for clients where the
+    same username exists across all of that client's WordPress sites (confirmed
+    true for bulletsin) — we just read the list from one representative site
+    (preferring the English one, falling back to whichever site exists first)
+    rather than merging/deduping across sites.
+
+    Each returned author's `slug` (WordPress's "nicename") is what gets stored
+    as wp_posts.author_username and later matched, slug-for-slug, against each
+    site's own /wp-json/wp/v2/users list at publish time — see multisite-worker.js.
+*/
+router.get('/api/bulk-import-md/wp-authors', requireAuth, async (req, res) => {
+    const { clientId } = req.query;
+    if (!clientId) {
+        return res.status(400).json({ error: 'clientId is required' });
+    }
+
+    try {
+        const [sites] = await db.query(
+            `SELECT * FROM wordpress_sites
+             WHERE client_id = ?
+             ORDER BY (language = 'English') DESC
+             LIMIT 1`,
+            [clientId]
+        );
+
+        if (!sites.length) {
+            return res.status(404).json({ error: 'No WordPress site found for this client' });
+        }
+
+        const site = sites[0];
+        const siteUrl = site.site_path
+            ? `${site.site_url.replace(/\/$/, '')}${site.site_path}`
+            : site.site_url.replace(/\/$/, '');
+
+        const credentials = Buffer.from(`${site.username}:${site.app_password}`).toString('base64');
+
+        const wpRes = await fetch(`${siteUrl}/wp-json/wp/v2/users?per_page=100`, {
+            headers: { Authorization: `Basic ${credentials}` }
+        });
+
+        if (!wpRes.ok) {
+            const errText = await wpRes.text();
+            return res.status(502).json({ error: 'Failed to fetch WordPress users', details: errText });
+        }
+
+        const users = await wpRes.json();
+        res.json(users.map(u => ({ id: u.id, name: u.name, slug: u.slug })));
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch WordPress authors', details: err.message });
+    }
+});
+
 // Temporarily replace your GET /today route body with this to see the raw error:
 router.get('/api/bulk-import-md/today', requireAuth, async (req, res) => {
     try {
         const [rows] = await db.query(
-            `SELECT id, title, content, excerpt, source_filename, language, client_id, created_at, scheduled_at, featured_image_url
+            `SELECT id, title, content, excerpt, source_filename, language, client_id, created_at, scheduled_at, featured_image_url, slug, tags, author_username
              FROM wp_posts
              WHERE DATE(created_at) = CURDATE()
              ORDER BY created_at DESC`
