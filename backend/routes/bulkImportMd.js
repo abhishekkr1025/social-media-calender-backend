@@ -356,7 +356,28 @@ router.get('/api/bulk-import-md/wp-authors', requireAuth, async (req, res) => {
         }
 
         const users = await wpRes.json();
-        res.json(users.map(u => ({ id: u.id, name: u.name, slug: u.slug })));
+
+        // The account behind the app password is who WordPress assigns posts to
+        // when no author is sent, so look up who that is.
+        let defaultUserId = null;
+        try {
+            const meRes = await fetch(`${siteUrl}/wp-json/wp/v2/users/me`, {
+                headers: { Authorization: `Basic ${credentials}` }
+            });
+            if (meRes.ok) {
+                const me = await meRes.json();
+                defaultUserId = me.id;
+            }
+        } catch (err) {
+            // non-fatal: the dropdown just falls back to a generic label
+        }
+
+        res.json(users.map(u => ({
+            id: u.id,
+            name: u.name,
+            slug: u.slug,
+            isDefault: u.id === defaultUserId
+        })));
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch WordPress authors', details: err.message });
     }
